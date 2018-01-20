@@ -1232,6 +1232,32 @@ static MemTxResult gic_cpu_read(GICState *s, int cpu, int offset,
             *data = s->abpr[cpu];
         }
         break;
+    case 0x20: /* Aliased Interrupt Acknowledge */
+        /* GIC v2, no security: not implemented (RAZ/WI)
+         * GIC v1: not implemented (RAZ/WI)
+         * With security extensions, secure access: AIAR (alias of NS IAR)
+         * With security extensions, nonsecure access: RAZ/WI
+         */
+        if (!gic_has_groups(s) || (s->security_extn && !attrs.secure)) {
+            *data = 0;
+        } else {
+            attrs.secure = 0;
+            *data = gic_acknowledge_irq(s, cpu, attrs);
+        }
+        break;
+    case 0x28: /* Aliased Highest Priority Pending Interrupt */
+        /* GIC v2, no security: not implemented (RAZ/WI)
+         * GIC v1: not implemented (RAZ/WI)
+         * With security extensions, secure access: AHPPIR (alias of NS HPPIR)
+         * With security extensions, nonsecure access: RAZ/WI
+         */
+        if (!gic_has_groups(s) || (s->security_extn && !attrs.secure)) {
+            *data = 0;
+        } else {
+            attrs.secure = 0;
+            *data = gic_get_current_pending_irq(s, cpu, attrs);
+        }
+        break;
     case 0xd0: case 0xd4: case 0xd8: case 0xdc:
     {
         int regno = (offset - 0xd0) / 4;
@@ -1294,6 +1320,17 @@ static MemTxResult gic_cpu_write(GICState *s, int cpu, int offset,
             s->abpr[cpu] = MAX(value & 0x7, GIC_MIN_ABPR);
         }
         break;
+    case 0x24: /* Aliased End Of Interrupt */
+        /* GIC v2, no security: not implemented (RAZ/WI)
+         * GIC v1: not implemented (RAZ/WI)
+         * With security extensions, secure access: AEOIR (alias of NS EOIR)
+         * With security extensions, nonsecure access: RAZ/WI
+         */
+        if (gic_has_groups(s) && (s->security_extn && attrs.secure)) {
+            attrs.secure = 0;
+            gic_complete_irq(s, cpu, value & 0x3ff, attrs);
+        }
+        return MEMTX_OK;
     case 0xd0: case 0xd4: case 0xd8: case 0xdc:
     {
         int regno = (offset - 0xd0) / 4;
