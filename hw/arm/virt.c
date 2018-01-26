@@ -515,6 +515,49 @@ static void fdt_add_pmu_nodes(const VirtMachineState *vms)
     }
 }
 
+#define GIC_SPI 0
+#define GIC_PPI 1
+
+static void fdt_add_trusty_nodes(const VirtMachineState *vms)
+{
+    uint32_t IPI_phandle = qemu_fdt_alloc_phandle(vms->fdt);
+
+    qemu_fdt_add_subnode(vms->fdt, "/trusty");
+    qemu_fdt_setprop_cell(vms->fdt, "/trusty", "#size-cells", 0x2);
+    qemu_fdt_setprop_cell(vms->fdt, "/trusty", "#address-cells", 0x2);
+    qemu_fdt_setprop(vms->fdt, "/trusty", "ranges", NULL, 0);
+    qemu_fdt_setprop_string(vms->fdt, "/trusty", "compatible",
+                                    "android,trusty-smc-v1");
+
+
+    qemu_fdt_add_subnode(vms->fdt, "/trusty/log");
+    qemu_fdt_setprop_string(vms->fdt, "/trusty/log", "compatible",
+                                    "android,trusty-log-v1");
+
+    qemu_fdt_add_subnode(vms->fdt, "/trusty/virtio");
+    qemu_fdt_setprop_string(vms->fdt, "/trusty/virtio", "compatible",
+                                    "android,trusty-virtio-v1");
+
+    qemu_fdt_add_subnode(vms->fdt, "/trusty/irq");
+    qemu_fdt_setprop_cells(vms->fdt, "/trusty/irq", "interrupt-ranges",
+                       0, 15, 0,
+                       16, 31, 1,
+                       32, 223, 2);
+    qemu_fdt_setprop_cells(vms->fdt, "/trusty/irq", "interrupt-templates",
+                       IPI_phandle, 0,
+                       vms->gic_phandle, 1, GIC_PPI, 0,
+                       vms->gic_phandle, 1, GIC_SPI, 0);
+    qemu_fdt_setprop_string(vms->fdt, "/trusty/irq", "compatible",
+                                    "android,trusty-irq-v1");
+
+    qemu_fdt_add_subnode(vms->fdt, "/IPI");
+    qemu_fdt_setprop(vms->fdt, "/IPI", "interrupt-controller", NULL, 0);
+    qemu_fdt_setprop_cell(vms->fdt, "/IPI", "#interrupt-cells", 1);
+    qemu_fdt_setprop_string(vms->fdt, "/IPI", "compatible",
+                                    "android,CustomIPI");
+    qemu_fdt_setprop_cell(vms->fdt, "/IPI", "phandle", IPI_phandle);
+}
+
 static void create_its(VirtMachineState *vms, DeviceState *gicdev)
 {
     const char *itsclass = its_class_name();
@@ -1438,6 +1481,7 @@ static void machvirt_init(MachineState *machine)
     create_gic(vms, pic);
 
     fdt_add_pmu_nodes(vms);
+    fdt_add_trusty_nodes(vms);
 
     create_uart(vms, pic, VIRT_UART, sysmem, serial_hds[0]);
 
