@@ -515,6 +515,29 @@ static void fdt_add_pmu_nodes(const VirtMachineState *vms)
     }
 }
 
+static void fdt_add_trusty_node(const VirtMachineState *vms)
+{
+    qemu_fdt_add_subnode(vms->fdt, "/trusty");
+    qemu_fdt_setprop_cell(vms->fdt, "/trusty", "#size-cells", 0x2);
+    qemu_fdt_setprop_cell(vms->fdt, "/trusty", "#address-cells", 0x2);
+    qemu_fdt_setprop(vms->fdt, "/trusty", "ranges", NULL, 0);
+    qemu_fdt_setprop_string(vms->fdt, "/trusty", "compatible",
+                                    "android,trusty-smc-v1");
+
+
+    qemu_fdt_add_subnode(vms->fdt, "/trusty/log");
+    qemu_fdt_setprop_string(vms->fdt, "/trusty/log", "compatible",
+                                    "android,trusty-log-v1");
+
+    qemu_fdt_add_subnode(vms->fdt, "/trusty/virtio");
+    qemu_fdt_setprop_string(vms->fdt, "/trusty/virtio", "compatible",
+                                    "android,trusty-virtio-v1");
+
+    qemu_fdt_add_subnode(vms->fdt, "/trusty/irq");
+    qemu_fdt_setprop_string(vms->fdt, "/trusty/irq", "compatible",
+                                    "android,trusty-irq-v1");
+}
+
 static void create_its(VirtMachineState *vms, DeviceState *gicdev)
 {
     const char *itsclass = its_class_name();
@@ -1428,6 +1451,7 @@ static void machvirt_init(MachineState *machine)
     fdt_add_timer_nodes(vms);
     fdt_add_cpu_nodes(vms);
     fdt_add_psci_node(vms);
+    fdt_add_trusty_node(vms);
 
     memory_region_allocate_system_memory(ram, NULL, "mach-virt.ram",
                                          machine->ram_size);
