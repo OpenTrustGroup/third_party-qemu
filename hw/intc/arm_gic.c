@@ -1603,6 +1603,28 @@ static inline void gic_apr_write_ns_view(GICState *s, int cpu, int regno,
     }
 }
 
+static uint32_t gic_get_aiar(GICState *s, int cpu,
+                             MemTxAttrs attrs)
+{
+    uint32_t acknowledge_irq = 0;
+    if (attrs.secure) {
+        attrs.secure = 0;
+        acknowledge_irq = gic_acknowledge_irq(s, cpu, attrs);
+    }
+    return acknowledge_irq;
+}
+
+static uint16_t gic_get_ahppir(GICState *s, int cpu,
+                               MemTxAttrs attrs)
+{
+    uint16_t pending_irq = 0;
+    if (attrs.secure) {
+        attrs.secure = 0;
+        pending_irq = gic_get_current_pending_irq(s, cpu, attrs);
+    }
+    return pending_irq;
+}
+
 static MemTxResult gic_cpu_read(GICState *s, int cpu, int offset,
                                 uint64_t *data, MemTxAttrs attrs)
 {
@@ -1646,6 +1668,12 @@ static MemTxResult gic_cpu_read(GICState *s, int cpu, int offset,
         } else {
             *data = s->abpr[cpu];
         }
+        break;
+    case 0x20: /* Aliased Interrupt Acknowledge */
+        *data = gic_get_aiar(s, cpu, attrs);
+        break;
+    case 0x28: /* Aliased Highest Priority Pending Interrupt */
+        *data = gic_get_ahppir(s, cpu, attrs);
         break;
     case 0xd0: case 0xd4: case 0xd8: case 0xdc:
     {
@@ -1734,6 +1762,10 @@ static MemTxResult gic_cpu_write(GICState *s, int cpu, int offset,
             s->abpr[cpu] = MAX(value & 0x7, GIC_MIN_ABPR);
         }
         break;
+    case 0x24: /* Aliased End Of Interrupt */
+        if (attrs.secure)
+            gic_complete_irq(s, cpu, value & 0x3ff, attrs);
+        return MEMTX_OK;
     case 0xd0: case 0xd4: case 0xd8: case 0xdc:
     {
         int regno = (offset - 0xd0) / 4;
