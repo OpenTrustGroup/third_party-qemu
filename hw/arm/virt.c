@@ -1116,6 +1116,42 @@ static void create_virtio_devices(const VirtMachineState *vms)
     }
 }
 
+#define GIC_SPI 0
+#define GIC_PPI 1
+
+static void create_trusty(VirtMachineState *vms)
+{
+    void *fdt = vms->fdt;
+    uint32_t ipi_phandle = qemu_fdt_alloc_phandle(fdt);
+
+    qemu_fdt_add_subnode(fdt, "/IPI");
+    qemu_fdt_setprop_cell(fdt, "/IPI", "phandle", ipi_phandle);
+    qemu_fdt_setprop_string(fdt, "/IPI", "compatible", "android,CustomIPI");
+    qemu_fdt_setprop_cell(fdt, "/IPI", "#interrupt-cells", 1);
+    qemu_fdt_setprop(fdt, "/IPI", "interrupt-controller", NULL, 0);
+
+    /* add dt node for trusty */
+    qemu_fdt_add_subnode(fdt, "/trusty");
+    qemu_fdt_setprop_string(fdt, "/trusty", "compatible", "android,trusty-smc-v1");
+    qemu_fdt_setprop(fdt, "/trusty", "ranges", NULL, 0);
+    qemu_fdt_setprop_cell(fdt, "/trusty", "#address-cells", 2);
+    qemu_fdt_setprop_cell(fdt, "/trusty", "#size-cells", 2);
+    qemu_fdt_add_subnode(fdt, "/trusty/irq");
+    qemu_fdt_setprop_string(fdt, "/trusty/irq", "compatible", "android,trusty-irq-v1");
+    qemu_fdt_setprop_cells(fdt, "/trusty/irq", "interrupt-templates",
+                           ipi_phandle, 0,
+                           vms->gic_phandle, 1, GIC_PPI, 0,
+                           vms->gic_phandle, 1, GIC_SPI, 0);
+    qemu_fdt_setprop_cells(fdt, "/trusty/irq", "interrupt-ranges",
+                            0,  15, 0,
+                           16,  31, 1,
+                           32, 223, 2);
+    qemu_fdt_add_subnode(fdt, "/trusty/virtio");
+    qemu_fdt_setprop_string(fdt, "/trusty/virtio", "compatible", "android,trusty-virtio-v1");
+    qemu_fdt_add_subnode(fdt, "/trusty/log");
+    qemu_fdt_setprop_string(fdt, "/trusty/log", "compatible", "android,trusty-log-v1");
+}
+
 #define VIRT_FLASH_SECTOR_SIZE (256 * KiB)
 
 static PFlashCFI01 *virt_flash_create1(VirtMachineState *vms,
@@ -2308,6 +2344,8 @@ static void machvirt_init(MachineState *machine)
      * no backend is created the transport will just sit harmlessly idle.
      */
     create_virtio_devices(vms);
+
+    create_trusty(vms);
 
     vms->fw_cfg = create_fw_cfg(vms, &address_space_memory);
     rom_set_fw(vms->fw_cfg);
