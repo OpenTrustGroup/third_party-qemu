@@ -1170,6 +1170,19 @@ static void create_trusty(VirtMachineState *vms)
     qemu_fdt_setprop_string(fdt, "/trusty/log", "compatible", "android,trusty-log-v1");
 }
 
+static void create_ion_reserved_mem(VirtMachineState *vms) {
+    void *fdt = vms->fdt;
+
+    qemu_fdt_add_subnode(fdt, "/reserved-memory");
+    qemu_fdt_setprop_cell(fdt, "/reserved-memory", "#address-cells", 2);
+    qemu_fdt_setprop_cell(fdt, "/reserved-memory", "#size-cells", 2);
+    qemu_fdt_setprop(fdt, "/reserved-memory", "ranges", NULL, 0);
+
+    qemu_fdt_add_subnode(fdt, "/reserved-memory/ion-region@b0000000");
+    qemu_fdt_setprop(fdt, "/reserved-memory/ion-region@b0000000", "no-map", NULL, 0);
+    qemu_fdt_setprop_cells(fdt, "/reserved-memory/ion-region@b0000000", "reg", 0x0, 0xb0000000, 0x0, 0x1E00000);
+}
+
 #define VIRT_FLASH_SECTOR_SIZE (256 * KiB)
 
 static PFlashCFI01 *virt_flash_create1(VirtMachineState *vms,
@@ -2365,6 +2378,8 @@ static void machvirt_init(MachineState *machine)
      * no backend is created the transport will just sit harmlessly idle.
      */
     create_virtio_devices(vms);
+
+    create_ion_reserved_mem(vms);
 
     create_trusty(vms);
 
