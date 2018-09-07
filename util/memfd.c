@@ -35,7 +35,12 @@
 #include <sys/syscall.h>
 #include <asm/unistd.h>
 
-int memfd_create(const char *name, unsigned int flags)
+// GRT: If memfd_create is impl in >glibc2.27, then use sys api,
+//      unless, use blow impl.
+__attribute__((weak, alias("memfd_create_alias")))
+int memfd_create(const char *name, unsigned int flags);
+
+static int memfd_create_alias(const char *name, unsigned int flags)
 {
 #ifdef __NR_memfd_create
     return syscall(__NR_memfd_create, name, flags);
