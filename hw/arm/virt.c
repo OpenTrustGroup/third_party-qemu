@@ -142,8 +142,8 @@ static const MemMapEntry a15memmap[] = {
     [VIRT_MMIO] =               { 0x0a000000, 0x00000200 },
     /* ...repeating for a total of NUM_VIRTIO_TRANSPORTS, each of that size */
     [VIRT_PLATFORM_BUS] =       { 0x0c000000, 0x02000000 },
-    [VIRT_SECURE_MEM] =         { 0x0e000000, 0x02000000 },
-    [VIRT_PCIE_MMIO] =          { 0x10000000, 0x2eff0000 },
+    [VIRT_SECURE_MEM] =         { 0x0e000000, 0x04000000 },
+    [VIRT_PCIE_MMIO] =          { 0x12000000, 0x2cff0000 },
     [VIRT_PCIE_PIO] =           { 0x3eff0000, 0x00010000 },
     [VIRT_PCIE_ECAM] =          { 0x3f000000, 0x01000000 },
     [VIRT_MEM] =                { 0x40000000, RAMLIMIT_BYTES },
