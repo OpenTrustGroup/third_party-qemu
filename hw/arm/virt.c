@@ -1173,8 +1173,8 @@ static void create_trusty(VirtMachineState *vms)
 static void create_trusty_sched_policy(VirtMachineState *vms)
 {
     void *fdt = vms->fdt;
-
-    qemu_fdt_add_subnode(fdt, "/nebula");
+    if (fdt_path_offset(fdt, "/nebula") == -FDT_ERR_NOTFOUND)
+        qemu_fdt_add_subnode(fdt, "/nebula");
     qemu_fdt_add_subnode(fdt, "/nebula/sched_policy");
     qemu_fdt_setprop_string(fdt, "/nebula/sched_policy", "compatible", "nbl,sched-policy-use-trusty");
 }
@@ -1185,7 +1185,8 @@ static void create_tee_system_mode(VirtMachineState *vms)
     char nodename[128];
 
     snprintf(nodename, sizeof(nodename), "/nebula/tee_system_mode@%lu", vms->tee_system_mode);
-    qemu_fdt_add_subnode(fdt, "/nebula");
+    if (fdt_path_offset(fdt, "/nebula") == -FDT_ERR_NOTFOUND)
+        qemu_fdt_add_subnode(fdt, "/nebula");
     qemu_fdt_add_subnode(fdt, nodename);
 }
 
