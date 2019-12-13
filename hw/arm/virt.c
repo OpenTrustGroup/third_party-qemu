@@ -1177,6 +1177,12 @@ static void create_nebula(VirtMachineState *vms)
     qemu_fdt_setprop_string(fdt, nodename, "compatible", "nbl,seccam-ion-reserve-memory");
     qemu_fdt_setprop(fdt, nodename, "no-map", NULL, 0);
     qemu_fdt_setprop_u64(fdt, nodename, "size", 3 * MB);
+
+    // Reveser-Channel-Service
+    qemu_fdt_add_subnode(fdt, "/nebula/rcs");
+    qemu_fdt_setprop_string(fdt, "/nebula/rcs", "compatible", "nbl,rcs-generic");
+    qemu_fdt_setprop_string(fdt, "/nebula/rcs", "dev_name", "/dev/trusty-ipc-dev0");
+    qemu_fdt_setprop_string(fdt, "/nebula/rcs", "svc_name", "com.nbl.droid.activity.callback");
 }
 
 static void create_trusty_sched_policy(VirtMachineState *vms)
