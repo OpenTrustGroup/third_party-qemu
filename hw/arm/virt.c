@@ -1169,6 +1169,10 @@ static void create_nebula(VirtMachineState *vms)
                            32, 223, 2);
     qemu_fdt_add_subnode(fdt, "/nebula/virtio");
     qemu_fdt_setprop_string(fdt, "/nebula/virtio", "compatible", "android,trusty-virtio-v1");
+
+    qemu_fdt_add_subnode(fdt, "/nebula/nlog");
+    qemu_fdt_setprop_string(fdt, "/nebula/nlog", "compatible", "android,nebula-log-v1");
+
     qemu_fdt_add_subnode(fdt, "/nebula/log");
     qemu_fdt_setprop_string(fdt, "/nebula/log", "compatible", "android,trusty-log-v1");
 
