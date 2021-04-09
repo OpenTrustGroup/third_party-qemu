@@ -1187,6 +1187,10 @@ static void create_nebula(VirtMachineState *vms)
     qemu_fdt_setprop_string(fdt, "/nebula/rcs", "compatible", "nbl,rcs-generic");
     qemu_fdt_setprop_string(fdt, "/nebula/rcs", "dev_name", "/dev/trusty-ipc-dev0");
     qemu_fdt_setprop_string(fdt, "/nebula/rcs", "svc_name", "com.nbl.droid.activity.callback");
+
+    // Reveser-Channel-Service
+    qemu_fdt_add_subnode(fdt, "/nebula/rpc");
+    qemu_fdt_setprop_string(fdt, "/nebula/rpc", "compatible", "nbl,rpc-generic");
 }
 
 static void create_trusty_sched_policy(VirtMachineState *vms)
