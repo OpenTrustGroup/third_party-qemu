@@ -1157,16 +1157,18 @@ static void create_nebula(VirtMachineState *vms)
     qemu_fdt_setprop(fdt, "/nebula", "ranges", NULL, 0);
     qemu_fdt_setprop_cell(fdt, "/nebula", "#address-cells", 2);
     qemu_fdt_setprop_cell(fdt, "/nebula", "#size-cells", 2);
-    qemu_fdt_add_subnode(fdt, "/nebula/irq");
-    qemu_fdt_setprop_string(fdt, "/nebula/irq", "compatible", "android,trusty-irq-v1");
-    qemu_fdt_setprop_cells(fdt, "/nebula/irq", "interrupt-templates",
-                           ipi_phandle, 0,
-                           vms->gic_phandle, 1, GIC_PPI, 0,
-                           vms->gic_phandle, 1, GIC_SPI, 0);
-    qemu_fdt_setprop_cells(fdt, "/nebula/irq", "interrupt-ranges",
-                            0,  15, 0,
-                           16,  31, 1,
-                           32, 223, 2);
+    if (!vms->active_hyp) {
+        qemu_fdt_add_subnode(fdt, "/nebula/irq");
+        qemu_fdt_setprop_string(fdt, "/nebula/irq", "compatible", "android,trusty-irq-v1");
+        qemu_fdt_setprop_cells(fdt, "/nebula/irq", "interrupt-templates",
+                               ipi_phandle, 0,
+                               vms->gic_phandle, 1, GIC_PPI, 0,
+                               vms->gic_phandle, 1, GIC_SPI, 0);
+        qemu_fdt_setprop_cells(fdt, "/nebula/irq", "interrupt-ranges",
+                               0, 15, 0,
+                               16, 31, 1,
+                               32, 223, 2);
+    }
     qemu_fdt_add_subnode(fdt, "/nebula/virtio");
     qemu_fdt_setprop_string(fdt, "/nebula/virtio", "compatible", "android,trusty-virtio-v1");
 
