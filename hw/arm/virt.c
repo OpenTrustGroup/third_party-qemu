@@ -1216,6 +1216,18 @@ static void create_nebula(VirtMachineState *vms)
     // Reveser-Channel-Service
     qemu_fdt_add_subnode(fdt, "/nebula/rpc");
     qemu_fdt_setprop_string(fdt, "/nebula/rpc", "compatible", "nbl,rpc-generic");
+
+    // Ipc Mailbox used to communicate between SOS and UOS
+    uint32_t mbox_phandle = qemu_fdt_alloc_phandle(fdt);
+    qemu_fdt_add_subnode(fdt, "/nebula_mbox");
+    qemu_fdt_setprop_cell(fdt, "/nebula_mbox", "#mbox-cells", 1);
+    qemu_fdt_setprop_cell(fdt, "/nebula_mbox", "phandle", mbox_phandle);
+    qemu_fdt_setprop_string(fdt, "/nebula_mbox", "compatible", "grt,ipc-mbox");
+
+    // echo service that acts a mbox client
+    qemu_fdt_add_subnode(fdt, "/nebula/echo-server");
+    qemu_fdt_setprop_string(fdt, "/nebula/echo-server", "compatible", "grt,echo-server");
+    qemu_fdt_setprop_cells(fdt, "/nebula/echo-server", "mboxes", mbox_phandle, 0);
 }
 
 static void create_trusty_sched_policy(VirtMachineState *vms)
