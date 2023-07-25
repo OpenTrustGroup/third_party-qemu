@@ -1180,18 +1180,7 @@ static void create_nebula(VirtMachineState *vms)
     qemu_fdt_setprop(fdt, "/nebula", "ranges", NULL, 0);
     qemu_fdt_setprop_cell(fdt, "/nebula", "#address-cells", 2);
     qemu_fdt_setprop_cell(fdt, "/nebula", "#size-cells", 2);
-    if (!vms->active_hyp) {
-        qemu_fdt_add_subnode(fdt, "/nebula/irq");
-        qemu_fdt_setprop_string(fdt, "/nebula/irq", "compatible", "android,trusty-irq-v1");
-        qemu_fdt_setprop_cells(fdt, "/nebula/irq", "interrupt-templates",
-                               ipi_phandle, 0,
-                               vms->gic_phandle, 1, GIC_PPI, 0,
-                               vms->gic_phandle, 1, GIC_SPI, 0);
-        qemu_fdt_setprop_cells(fdt, "/nebula/irq", "interrupt-ranges",
-                               0, 15, 0,
-                               16, 31, 1,
-                               32, 223, 2);
-    }
+
     qemu_fdt_add_subnode(fdt, "/nebula/virtio");
     qemu_fdt_setprop_string(fdt, "/nebula/virtio", "compatible", "android,trusty-virtio-v1");
 
@@ -1228,6 +1217,48 @@ static void create_nebula(VirtMachineState *vms)
     qemu_fdt_add_subnode(fdt, "/nebula/echo-server");
     qemu_fdt_setprop_string(fdt, "/nebula/echo-server", "compatible", "grt,echo-server");
     qemu_fdt_setprop_cells(fdt, "/nebula/echo-server", "mboxes", mbox_phandle, 0);
+
+    if (vms->active_hyp) {
+        /* add dt node for nebula virtual TEE */
+        qemu_fdt_add_subnode(fdt, "/nebula-vtee");
+        qemu_fdt_setprop_string(fdt, "/nebula-vtee", "compatible", "android,vtee-smc-v1");
+
+        // handle TEE IRQ routing by virtual TEE driver
+        qemu_fdt_add_subnode(fdt, "/nebula-vtee/irq");
+        qemu_fdt_setprop_string(fdt, "/nebula-vtee/irq", "compatible", "android,vtee-irq-v1");
+        qemu_fdt_setprop_cells(fdt, "/nebula-vtee/irq", "interrupt-templates",
+                                ipi_phandle, 0,
+                                vms->gic_phandle, 1, GIC_PPI, 0,
+                                vms->gic_phandle, 1, GIC_SPI, 0);
+        qemu_fdt_setprop_cells(fdt, "/nebula-vtee/irq", "interrupt-ranges",
+                                0, 15, 0,
+                                16, 31, 1,
+                                32, 223, 2);
+
+        // Virtual TEE log driver
+        qemu_fdt_add_subnode(fdt, "/nebula-vtee/log");
+        qemu_fdt_setprop_string(fdt, "/nebula-vtee/log", "compatible", "android,vtee-log-v1");
+
+        qemu_fdt_add_subnode(fdt, "/nebula-vtee/nblmsg");
+        qemu_fdt_setprop_string(fdt, "/nebula-vtee/nblmsg", "compatible", "android,vtee-nblmsg-v1");
+
+        // Virtual TEE virtio driver
+        qemu_fdt_add_subnode(fdt, "/nebula-vtee/virtio");
+        qemu_fdt_setprop_string(fdt, "/nebula-vtee/virtio", "compatible", "android,vtee-virtio-v1");
+    } else {
+        // handle TEE IRQ routing by nebula driver
+        qemu_fdt_add_subnode(fdt, "/nebula/irq");
+        qemu_fdt_setprop_string(fdt, "/nebula/irq", "compatible", "android,trusty-irq-v1");
+        qemu_fdt_setprop_cells(fdt, "/nebula/irq", "interrupt-templates",
+                               ipi_phandle, 0,
+                               vms->gic_phandle, 1, GIC_PPI, 0,
+                               vms->gic_phandle, 1, GIC_SPI, 0);
+        qemu_fdt_setprop_cells(fdt, "/nebula/irq", "interrupt-ranges",
+                               0, 15, 0,
+                               16, 31, 1,
+                               32, 223, 2);
+    }
+
 }
 
 static void create_trusty_sched_policy(VirtMachineState *vms)
