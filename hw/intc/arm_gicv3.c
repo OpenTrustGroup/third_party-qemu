@@ -382,7 +382,27 @@ static const MemoryRegionOps gic_ops[] = {
         .valid.max_access_size = 8,
         .impl.min_access_size = 1,
         .impl.max_access_size = 8,
-    }
+    },
+    {
+        .read_with_attrs = gicv3_gich_read,
+        .write_with_attrs = gicv3_gich_write,
+        .endianness = DEVICE_NATIVE_ENDIAN,
+        /* TODO@wujie: to be confirm */
+        .valid.min_access_size = 1,
+        .valid.max_access_size = 8,
+        .impl.min_access_size = 1,
+        .impl.max_access_size = 8,
+    },
+    {
+        .read_with_attrs = gicv3_gicv_read,
+        .write_with_attrs = gicv3_gicv_write,
+        .endianness = DEVICE_NATIVE_ENDIAN,
+        /* TODO@wujie: to be confirm */
+        .valid.min_access_size = 1,
+        .valid.max_access_size = 8,
+        .impl.min_access_size = 1,
+        .impl.max_access_size = 8,
+    },
 };
 
 static void arm_gic_realize(DeviceState *dev, Error **errp)

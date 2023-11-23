@@ -320,6 +320,12 @@ void gicv3_init_irqs_and_mmio(GICv3State *s, qemu_irq_handler handler,
         sysbus_init_mmio(sbd, &region->iomem);
         g_free(name);
     }
+    memory_region_init_io(&s->iomem_gich, OBJECT(s), ops ? &ops[2] : NULL, s,
+                          "gicv3_gich", 0x10000);
+    memory_region_init_io(&s->iomem_gicv, OBJECT(s), ops ? &ops[3] : NULL, s,
+                          "gicv3_gicv", 0x10000);
+    sysbus_init_mmio(sbd, &s->iomem_gich);
+    sysbus_init_mmio(sbd, &s->iomem_gicv);
 }
 
 static void arm_gicv3_common_realize(DeviceState *dev, Error **errp)

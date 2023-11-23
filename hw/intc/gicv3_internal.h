@@ -190,6 +190,39 @@ FIELD(GICR_VPENDBASER, VALID, 63, 1)
 #define ICC_CTLR_EL3_A3V (1U << 15)
 #define ICC_CTLR_EL3_NDS (1U << 17)
 
+/*
+ * GICH registers, offsets from RD_base
+ */
+#define GICH_BASE            (0x1000)
+#define GICH_HCR             (GICH_BASE + 0x0000)
+#define GICH_VTR             (GICH_BASE + 0x0004)
+#define GICH_VMCR            (GICH_BASE + 0x0008)
+#define GICH_MISR            (GICH_BASE + 0x0010)
+#define GICH_EISR            (GICH_BASE + 0x0020)
+#define GICH_ELRSR           (GICH_BASE + 0x0030)
+#define GICH_APR             (GICH_BASE + 0x00F0)
+#define GICH_LR              (GICH_BASE + 0x0100)
+
+/*
+ * GICV registers, offsets from RD_base
+ */
+#define GICV_BASE            (0x0)
+#define GICV_CTLR            (GICV_BASE + 0x0000)
+#define GICV_PMR             (GICV_BASE + 0x0004)
+#define GICV_BPR             (GICV_BASE + 0x0008)
+#define GICV_IAR             (GICV_BASE + 0x000C)
+#define GICV_EOIR            (GICV_BASE + 0x0010)
+#define GICV_RPR             (GICV_BASE + 0x0014)
+#define GICV_HPPIR           (GICV_BASE + 0x0018)
+#define GICV_ABPR            (GICV_BASE + 0x001C)
+#define GICV_AIAR            (GICV_BASE + 0x0020)
+#define GICV_AEOIR           (GICV_BASE + 0x0024)
+#define GICV_AHPPIR          (GICV_BASE + 0x0028)
+#define GICV_STATUSR         (GICV_BASE + 0x002C)
+#define GICV_APR             (GICV_BASE + 0x00D0)
+#define GICV_IIDR            (GICV_BASE + 0x00FC)
+#define GICV_DIR             (GICV_BASE + 0x1000)
+
 #define ICH_VMCR_EL2_VENG0_SHIFT 0
 #define ICH_VMCR_EL2_VENG0 (1U << ICH_VMCR_EL2_VENG0_SHIFT)
 #define ICH_VMCR_EL2_VENG1_SHIFT 1
@@ -593,6 +626,14 @@ MemTxResult gicv3_redist_read(void *opaque, hwaddr offset, uint64_t *data,
                               unsigned size, MemTxAttrs attrs);
 MemTxResult gicv3_redist_write(void *opaque, hwaddr offset, uint64_t data,
                                unsigned size, MemTxAttrs attrs);
+MemTxResult gicv3_gich_read(void *opaque, hwaddr offset, uint64_t *data,
+                            unsigned size, MemTxAttrs attrs);
+MemTxResult gicv3_gich_write(void *opaque, hwaddr addr, uint64_t data,
+                             unsigned size, MemTxAttrs attrs);
+MemTxResult gicv3_gicv_read(void *opaque, hwaddr offset, uint64_t *data,
+                            unsigned size, MemTxAttrs attrs);
+MemTxResult gicv3_gicv_write(void *opaque, hwaddr addr, uint64_t data,
+                             unsigned size, MemTxAttrs attrs);
 void gicv3_dist_set_irq(GICv3State *s, int irq, int level);
 void gicv3_redist_set_irq(GICv3CPUState *cs, int irq, int level);
 void gicv3_redist_process_lpi(GICv3CPUState *cs, int irq, int level);

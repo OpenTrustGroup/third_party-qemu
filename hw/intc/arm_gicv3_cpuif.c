@@ -2924,3 +2924,204 @@ void gicv3_init_cpuif(GICv3State *s)
         }
     }
 }
+
+static inline int cpu_index(CPUState *cpu)
+{
+    return cpu->cpu_index;
+}
+
+static MemTxResult gich_readl(CPUARMState *env, hwaddr offset,
+                              uint64_t *data, MemTxAttrs attrs)
+{
+    /* Almost all GICv3 distributor registers are 32-bit.
+     * Note that WO registers must return an UNKNOWN value on reads,
+     * not an abort.
+     */
+
+    switch (offset) {
+    case GICH_HCR:
+        *data = ich_hcr_read(env, NULL);
+        return MEMTX_OK;
+    case GICH_VTR:
+        *data = ich_vtr_read(env, NULL);
+        return MEMTX_OK;
+    case GICH_VMCR:
+        *data = ich_vmcr_read(env, NULL);
+        return MEMTX_OK;
+    case GICH_MISR:
+        *data = ich_misr_read(env, NULL);
+        return MEMTX_OK;
+    case GICH_EISR:
+        *data = ich_eisr_read(env, NULL);
+        return MEMTX_OK;
+    case GICH_ELRSR:
+        *data = ich_elrsr_read(env, NULL);
+        return MEMTX_OK;
+    case GICH_LR ... GICH_LR + 0x3C:
+    {
+        GICv3CPUState *cs = icc_cs_from_env(env);
+        uint64_t value = cs->ich_lr_el2[(offset - GICH_LR) / 4];
+        if ((offset - GICH_LR) % 8 == 0)
+            *data = extract64(value, 0, 32);
+        else if ((offset - GICH_LR) % 8 == 4)
+            *data = extract64(value, 32, 32);
+        return MEMTX_OK;
+    }
+    default:
+        return MEMTX_ERROR;
+    }
+}
+
+MemTxResult gicv3_gich_read(void *opaque, hwaddr offset, uint64_t *data,
+                            unsigned size, MemTxAttrs attrs)
+{
+    ARMCPU *arm_cpu = ARM_CPU(current_cpu);
+    CPUARMState *env = &arm_cpu->env;
+    MemTxResult r;
+
+    switch (size) {
+    case 4:
+        r = gich_readl(env, offset, data, attrs);
+        break;
+    default:
+        r = MEMTX_ERROR;
+        break;
+    }
+
+    //if (offset == 0x1100 || offset == 0x1104 || offset == 0x1008)
+    //    printf("%s:%d offset: 0x%lx data: 0x%lx size: 0x%x\n", __func__, __LINE__, offset, *data, size);
+    return r;
+}
+
+static MemTxResult gich_writel(CPUARMState *env, hwaddr offset,
+                               uint64_t value, MemTxAttrs attrs)
+{
+    /* Almost all GICv3 distributor registers are 32-bit. Note that
+     * RO registers must ignore writes, not abort.
+     */
+    switch (offset) {
+    case GICH_HCR:
+        ich_hcr_write(env, NULL, value);
+        return MEMTX_OK;
+    case GICH_VTR:
+        return MEMTX_OK;
+    case GICH_VMCR:
+        ich_vmcr_write(env, NULL, value);
+        return MEMTX_OK;
+    case GICH_MISR:
+    case GICH_EISR:
+    case GICH_ELRSR:
+        return MEMTX_OK;
+    case GICH_LR ... GICH_LR + 0x3C:
+    {
+        GICv3CPUState *cs = icc_cs_from_env(env);
+        uint64_t regno = (offset - GICH_LR) / 8;
+        if ((offset - GICH_LR) % 8 == 0)
+            value = deposit64(cs->ich_lr_el2[regno], 0, 32, value);
+        else if ((offset - GICH_LR) % 8 == 4)
+            value = deposit64(cs->ich_lr_el2[regno], 32, 32, value);
+        cs->ich_lr_el2[regno] = value;
+        if ((offset - GICH_LR) % 8 == 4)
+            gicv3_cpuif_virt_update(cs);
+        return MEMTX_OK;
+    }
+    default:
+        return MEMTX_ERROR;
+    }
+}
+
+
+MemTxResult gicv3_gich_write(void *opaque, hwaddr offset, uint64_t data,
+                             unsigned size, MemTxAttrs attrs)
+{
+    //if (offset == 0x1100 || offset == 0x1104 || offset == 0x1008)
+    //    printf("%s:%d offset: 0x%lx data: 0x%lx size: 0x%x\n", __func__, __LINE__, offset, data, size);
+    ARMCPU *arm_cpu = ARM_CPU(current_cpu);
+    CPUARMState *env = &arm_cpu->env;
+    MemTxResult r;
+
+    switch (size) {
+    case 4:
+        r = gich_writel(env, offset, data, attrs);
+        break;
+    default:
+        r = MEMTX_ERROR;
+        break;
+    }
+
+    return r;
+}
+
+static MemTxResult gicv_readl(CPUARMState *env, hwaddr offset,
+                               uint64_t *data, MemTxAttrs attrs)
+{
+    /* Almost all GICv3 distributor registers are 32-bit. Note that
+     * RO registers must ignore writes, not abort.
+     */
+    switch (offset) {
+    case GICV_CTLR:
+        *data = icv_ctlr_read(env, NULL);
+        return MEMTX_OK;
+    case GICV_PMR:
+        *data = icv_pmr_read(env, NULL);
+        return MEMTX_OK;
+    default:
+        return MEMTX_ERROR;
+    }
+}
+
+MemTxResult gicv3_gicv_read(void *opaque, hwaddr offset, uint64_t *data,
+                            unsigned size, MemTxAttrs attrs)
+{
+    //printf("%s:%d offset: 0x%lx size: 0x%x\n", __func__, __LINE__, offset, size);
+    ARMCPU *arm_cpu = ARM_CPU(current_cpu);
+    CPUARMState *env = &arm_cpu->env;
+    MemTxResult r;
+
+    switch (size) {
+    case 4:
+        r = gicv_readl(env, offset, data, attrs);
+        break;
+    default:
+        r = MEMTX_ERROR;
+        break;
+    }
+
+    return r;
+}
+
+static MemTxResult gicv_writel(CPUARMState *env, hwaddr offset,
+                               uint64_t value, MemTxAttrs attrs)
+{
+    /* Almost all GICv3 distributor registers are 32-bit. Note that
+     * RO registers must ignore writes, not abort.
+     */
+    switch (offset) {
+    case GICV_CTLR:
+        icv_ctlr_write(env, NULL, value);
+        return MEMTX_OK;
+    default:
+        return MEMTX_ERROR;
+    }
+}
+
+MemTxResult gicv3_gicv_write(void *opaque, hwaddr offset, uint64_t data,
+                             unsigned size, MemTxAttrs attrs)
+{
+    //printf("%s:%d offset: 0x%lx data: 0x%lx size: 0x%x\n", __func__, __LINE__, offset, data, size);
+    ARMCPU *arm_cpu = ARM_CPU(current_cpu);
+    CPUARMState *env = &arm_cpu->env;
+    MemTxResult r;
+
+    switch (size) {
+    case 4:
+        r = gicv_writel(env, offset, data, attrs);
+        break;
+    default:
+        r = MEMTX_ERROR;
+        break;
+    }
+
+    return r;
+}
+

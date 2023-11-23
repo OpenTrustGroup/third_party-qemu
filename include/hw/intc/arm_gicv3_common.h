@@ -242,6 +242,8 @@ struct GICv3State {
     GICv3RedistRegion *redist_regions; /* Redistributor Regions */
     uint32_t *redist_region_count; /* redistributor count within each region */
     uint32_t nb_redist_regions; /* number of redist regions */
+    MemoryRegion iomem_gich; /* GICH */
+    MemoryRegion iomem_gicv; /* GICV */
 
     uint32_t num_cpu;
     uint32_t num_irq;
