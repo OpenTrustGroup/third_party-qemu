@@ -190,8 +190,17 @@ static MemMapEntry extended_memmap[] = {
     /* Additional 64 MB redist region (can contain up to 512 redistributors) */
     [VIRT_HIGH_GIC_REDIST2] =   { 0x0, 64 * MiB },
     [VIRT_HIGH_PCIE_ECAM] =     { 0x0, 256 * MiB },
+#if 0
     /* Second PCIe window */
     [VIRT_HIGH_PCIE_MMIO] =     { 0x0, 512 * GiB },
+#else
+    /* 
+     * TODO@wujie the mapping region to be confirmed!
+     * NOTE(GR-0002): Second PCIe window, 1GB wide at the 16GB boundary,
+     * For A53 compatibility (max 40bits PA), max IPA in Nebula is 36bits.
+     */
+    [VIRT_HIGH_PCIE_MMIO] =   { 0x0, 0x40000000ULL },
+#endif
 };
 
 static const int a15irqmap[] = {
