@@ -182,6 +182,7 @@ struct VirtMachineState {
     uint64_t ion_ram_size;
     uint64_t tee_ram_size;
     bool trusty_sched_policy;
+    uint64_t tee_system_mode;
 };
 
 #define VIRT_ECAM_ID(high) (high ? VIRT_HIGH_PCIE_ECAM : VIRT_PCIE_ECAM)

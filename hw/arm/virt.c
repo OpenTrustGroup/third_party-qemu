@@ -1179,6 +1179,16 @@ static void create_trusty_sched_policy(VirtMachineState *vms)
     qemu_fdt_setprop_string(fdt, "/nebula/sched_policy", "compatible", "nbl,sched-policy-use-trusty");
 }
 
+static void create_tee_system_mode(VirtMachineState *vms)
+{
+    void *fdt = vms->fdt;
+    char nodename[128];
+
+    snprintf(nodename, sizeof(nodename), "/nebula/tee_system_mode@%lu", vms->tee_system_mode);
+    qemu_fdt_add_subnode(fdt, "/nebula");
+    qemu_fdt_add_subnode(fdt, nodename);
+}
+
 static void create_reserved_mem(VirtMachineState *vms) {
     void *fdt = vms->fdt;
 
@@ -2477,6 +2487,9 @@ static void machvirt_init(MachineState *machine)
     if (vms->trusty_sched_policy) {
         create_trusty_sched_policy(vms);
     }
+    if (vms->tee_system_mode) {
+        create_tee_system_mode(vms);
+    }
 
     vms->fw_cfg = create_fw_cfg(vms, &address_space_memory);
     rom_set_fw(vms->fw_cfg);
@@ -2910,6 +2923,25 @@ static void virt_set_trusty_sched_policy(Object *obj, bool value, Error **errp)
 {
     VirtMachineState *vms = VIRT_MACHINE(obj);
     vms->trusty_sched_policy = value;
+}
+
+/* --VSCRUM-341-- */
+
+static char *virt_get_tee_system_mode(Object *obj, Error **errp)
+{
+    VirtMachineState *vms = VIRT_MACHINE(obj);
+    char val[128] = {};
+
+    snprintf(val, sizeof(val), "%lu", vms->tee_system_mode);
+
+    return g_strdup(val);
+}
+
+static void virt_set_tee_system_mode(Object *obj, const char *value, Error **errp)
+{
+    VirtMachineState *vms = VIRT_MACHINE(obj);
+
+    vms->tee_system_mode = strtol(value, NULL, 10);
 }
 
 static CpuInstanceProperties
@@ -3446,6 +3478,9 @@ static void virt_instance_init(Object *obj)
     vms->trusty_sched_policy = false;
     object_property_add_bool(obj, "trusty-sched-policy", virt_get_trusty_sched_policy,
                         virt_set_trusty_sched_policy, NULL);
+    vms->tee_system_mode = 0;
+    object_property_add_str(obj, "tee-system-mode", virt_get_tee_system_mode,
+                        virt_set_tee_system_mode, NULL);
 }
 
 static const TypeInfo virt_machine_info = {
