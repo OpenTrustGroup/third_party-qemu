@@ -1209,6 +1209,12 @@ static void create_tee_system_mode(VirtMachineState *vms)
     qemu_fdt_add_subnode(fdt, nodename);
 }
 
+static void create_active_hyp(VirtMachineState *vms)
+{
+    void *fdt = vms->fdt;
+    qemu_fdt_add_subnode(fdt, "/active-hyp");
+}
+
 static void create_reserved_mem(VirtMachineState *vms) {
     void *fdt = vms->fdt;
 
@@ -2525,6 +2531,10 @@ static void machvirt_init(MachineState *machine)
 
     create_reserved_mem(vms);
 
+    if (vms->active_hyp) {
+        create_active_hyp(vms);
+    }
+
     create_nebula(vms);
 
     if (vms->trusty_sched_policy) {
@@ -2985,6 +2995,18 @@ static void virt_set_tee_system_mode(Object *obj, const char *value, Error **err
     VirtMachineState *vms = VIRT_MACHINE(obj);
 
     vms->tee_system_mode = strtol(value, NULL, 10);
+}
+
+static bool virt_get_active_hyp(Object *obj, Error **errp)
+{
+    VirtMachineState *vms = VIRT_MACHINE(obj);
+    return vms->active_hyp;
+}
+
+static void virt_set_active_hyp(Object *obj, bool value, Error **errp)
+{
+    VirtMachineState *vms = VIRT_MACHINE(obj);
+    vms->active_hyp = value;
 }
 
 static CpuInstanceProperties
@@ -3524,6 +3546,9 @@ static void virt_instance_init(Object *obj)
     vms->tee_system_mode = 0;
     object_property_add_str(obj, "tee-system-mode", virt_get_tee_system_mode,
                         virt_set_tee_system_mode, NULL);
+    vms->active_hyp = false;
+    object_property_add_bool(obj, "active-hyp", virt_get_active_hyp,
+                        virt_set_active_hyp, NULL);
 }
 
 static const TypeInfo virt_machine_info = {
