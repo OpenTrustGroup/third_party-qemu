@@ -115,6 +115,8 @@
 
 #define PLATFORM_BUS_NUM_IRQS 64
 
+#define MB (1024 * 1024)
+
 /* Legacy RAM limit in GB (< version 4.0) */
 #define LEGACY_RAMLIMIT_GB 255
 #define LEGACY_RAMLIMIT_BYTES (LEGACY_RAMLIMIT_GB * GiB)
@@ -1169,6 +1171,12 @@ static void create_nebula(VirtMachineState *vms)
     qemu_fdt_setprop_string(fdt, "/nebula/virtio", "compatible", "android,trusty-virtio-v1");
     qemu_fdt_add_subnode(fdt, "/nebula/log");
     qemu_fdt_setprop_string(fdt, "/nebula/log", "compatible", "android,trusty-log-v1");
+
+    const char *nodename = "/reserved-memory/nebula-seccam-ion";
+    qemu_fdt_add_subnode(fdt, nodename);
+    qemu_fdt_setprop_string(fdt, nodename, "compatible", "nbl,seccam-ion-reserve-memory");
+    qemu_fdt_setprop(fdt, nodename, "no-map", NULL, 0);
+    qemu_fdt_setprop_u64(fdt, nodename, "size", 3 * MB);
 }
 
 static void create_trusty_sched_policy(VirtMachineState *vms)
