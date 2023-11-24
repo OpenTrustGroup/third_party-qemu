@@ -163,6 +163,7 @@ static const MemMapEntry base_memmap[] = {
     /* ...repeating for a total of NUM_VIRTIO_TRANSPORTS, each of that size */
     [VIRT_PLATFORM_BUS] =       { 0x0c000000, 0x02000000 },
     [VIRT_SECURE_MEM] =         { 0x0e000000, 0x01000000 },
+    [VIRT_PROTECTED_MEM] =      { 0x0f000000, 0x01000000 },
     [VIRT_PCIE_MMIO] =          { 0x10000000, 0x2eff0000 },
     [VIRT_PCIE_PIO] =           { 0x3eff0000, 0x00010000 },
     [VIRT_PCIE_ECAM] =          { 0x3f000000, 0x01000000 },
@@ -1755,6 +1756,27 @@ static void create_secure_ram(VirtMachineState *vms,
     g_free(nodename);
 }
 
+static void create_protected_ram(VirtMachineState *vms,
+                              MemoryRegion *sysmem)
+{
+    MemoryRegion *protectedram = g_new(MemoryRegion, 1);
+    char *nodename;
+    hwaddr base = vms->memmap[VIRT_PROTECTED_MEM].base;
+    hwaddr size = vms->memmap[VIRT_PROTECTED_MEM].size;
+
+    memory_region_init_ram(protectedram, NULL, "virt.protected-ram", size,
+                           &error_fatal);
+    memory_region_add_subregion(sysmem, base, protectedram);
+
+    nodename = g_strdup_printf("/protectedram@%" PRIx64, base);
+    qemu_fdt_add_subnode(vms->fdt, nodename);
+    qemu_fdt_setprop_string(vms->fdt, nodename, "device_type", "memory");
+    qemu_fdt_setprop_sized_cells(vms->fdt, nodename, "reg", 2, base, 2, size);
+    qemu_fdt_setprop_string(vms->fdt, nodename, "status", "disabled");
+
+    g_free(nodename);
+}
+
 static void *machvirt_dtb(const struct arm_boot_info *binfo, int *fdt_size)
 {
     const VirtMachineState *board = container_of(binfo, VirtMachineState,
@@ -2456,6 +2478,8 @@ static void machvirt_init(MachineState *machine)
     }
 
     vms->highmem_ecam &= (!firmware_loaded || aarch64);
+
+    create_protected_ram(vms, sysmem);
 
     create_rtc(vms);
 
