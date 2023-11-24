@@ -1170,7 +1170,7 @@ static void create_trusty(VirtMachineState *vms)
     qemu_fdt_setprop_string(fdt, "/trusty/log", "compatible", "android,trusty-log-v1");
 }
 
-static void create_ion_reserved_mem(VirtMachineState *vms) {
+static void create_reserved_mem(VirtMachineState *vms) {
     void *fdt = vms->fdt;
 
     qemu_fdt_add_subnode(fdt, "/reserved-memory");
@@ -1178,9 +1178,68 @@ static void create_ion_reserved_mem(VirtMachineState *vms) {
     qemu_fdt_setprop_cell(fdt, "/reserved-memory", "#size-cells", 2);
     qemu_fdt_setprop(fdt, "/reserved-memory", "ranges", NULL, 0);
 
-    qemu_fdt_add_subnode(fdt, "/reserved-memory/ion-region@b0000000");
-    qemu_fdt_setprop(fdt, "/reserved-memory/ion-region@b0000000", "no-map", NULL, 0);
-    qemu_fdt_setprop_cells(fdt, "/reserved-memory/ion-region@b0000000", "reg", 0x0, 0xb0000000, 0x0, 0x1E00000);
+    // hee_ram_base >>>>>>>>>>>+------------------------------+
+    //                         |  hee-device-tree 64KiB       |
+    //             +0x10000 -->+------------------------------+
+    //                         |                              |
+    //                         |  hee-region                  |
+    //                         |                              |
+    // ree1_ram_base >>>>>>>>>>+------------------------------+
+    //                         |  ree-device-tree 64KiB       |
+    //             +0x10000 -->+------------------------------+
+    //                         |                              |
+    //                         |  ree-region                  |
+    //                         |                              |
+    //         ion_ram_base -->+------------------------------+
+    //                         |  ion 32MiB                   |
+    //        ree2_ram_base -->+------------------------------+
+    //                         |  ree2-region(ramdisk) 64MiB  |
+    //             cma_base -->+------------------------------+
+    //                         |  cma (dma) 16MiB             |
+    // tee_ram_base >>>>>>>>>>>+------------------------------+
+    //                         |  tee-device-tree 64KiB       |
+    //             +0x10000 -->+------------------------------+
+    //                         |                              |
+    //                         |  tee-region                  |
+    //                         |                              |
+    //                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    uint64_t hee_ram_base = vms->memmap[VIRT_MEM].base;
+    uint64_t hee_ram_size = vms->hee_ram_size;
+    uint64_t ree1_ram_base = hee_ram_base + hee_ram_size;
+    uint64_t ree1_ram_size = vms->ree1_ram_size;
+    uint64_t cma_ram_size = 16ul << 20; // [    0.000000] cma: Reserved 16 MiB at 0x000000005f000000
+    uint64_t cma_ram_base = ree1_ram_base + ree1_ram_size - cma_ram_size;
+    uint64_t ree2_ram_size = vms->ree2_ram_size;
+    uint64_t ree2_ram_base = cma_ram_base - ree2_ram_size;
+    uint64_t ion_ram_size = vms->ion_ram_size;
+    uint64_t ion_ram_base = ree2_ram_base - ion_ram_size;
+    uint64_t tee_ram_base = ree1_ram_base + ree1_ram_size;
+    uint64_t tee_ram_size = vms->tee_ram_size;
+    /* hee */
+    qemu_fdt_add_subnode(fdt, "/reserved-memory/hee-region");
+    qemu_fdt_setprop(fdt, "/reserved-memory/hee-region", "no-map", NULL, 0);
+    qemu_fdt_setprop_cells(fdt, "/reserved-memory/hee-region", "reg", 0x0, hee_ram_base, 0x0, hee_ram_size);
+    qemu_fdt_setprop_u64(fdt, "/reserved-memory/hee-region", "offset", 0x10000);
+    /* ree1 */
+    qemu_fdt_add_subnode(fdt, "/reserved-memory/ree1-region");
+    qemu_fdt_setprop(fdt, "/reserved-memory/ree1-region", "no-map", NULL, 0);
+    qemu_fdt_setprop_cells(fdt, "/reserved-memory/ree1-region", "reg", 0x0, ree1_ram_base, 0x0, ree1_ram_size);
+    qemu_fdt_setprop_u64(fdt, "/reserved-memory/ree1-region", "offset", 0x10000);
+    /* ion */
+    qemu_fdt_add_subnode(fdt, "/reserved-memory/ion-region");
+    qemu_fdt_setprop(fdt, "/reserved-memory/ion-region", "no-map", NULL, 0);
+    qemu_fdt_setprop_cells(fdt, "/reserved-memory/ion-region", "reg", 0x0, ion_ram_base, 0x0, ion_ram_size);
+    qemu_fdt_setprop_u64(fdt, "/reserved-memory/ion-region", "offset", 0x0);
+    /* ree2 */
+    qemu_fdt_add_subnode(fdt, "/reserved-memory/ree2-region");
+    qemu_fdt_setprop(fdt, "/reserved-memory/ree2-region", "no-map", NULL, 0);
+    qemu_fdt_setprop_cells(fdt, "/reserved-memory/ree2-region", "reg", 0x0, ree1_ram_base, 0x0, ree1_ram_size);
+    qemu_fdt_setprop_u64(fdt, "/reserved-memory/ree2-region", "offset", ree2_ram_base - ree1_ram_base);
+    /* tee */
+    qemu_fdt_add_subnode(fdt, "/reserved-memory/tee-region");
+    qemu_fdt_setprop(fdt, "/reserved-memory/tee-region", "no-map", NULL, 0);
+    qemu_fdt_setprop_cells(fdt, "/reserved-memory/tee-region", "reg", 0x0, tee_ram_base, 0x0, tee_ram_size);
+    qemu_fdt_setprop_u64(fdt, "/reserved-memory/tee-region", "offset", 0x10000);
 }
 
 #define VIRT_FLASH_SECTOR_SIZE (256 * KiB)
@@ -2208,6 +2267,29 @@ static void machvirt_init(MachineState *machine)
         exit(1);
     }
 
+    /* ++VSCRUM-393++ */
+    if (machine->ram_size != vms->hee_ram_size + vms->tee_ram_size +
+            vms->ree1_ram_size) {
+        error_report("mach-virt: ram_size(%lu) != hee_ram_size(%lu) + "
+                "tee_ram_size(%lu) + ree1_ram_size(%lu)",
+                machine->ram_size, vms->hee_ram_size, vms->tee_ram_size,
+                vms->ree1_ram_size);
+        exit(1);
+    }
+
+    if (vms->ion_ram_size >= vms->ree1_ram_size) {
+        error_report("mach-virt: ion_ram_size (%lu) must < ree1_ram_size (%lu)}",
+                vms->ion_ram_size, vms->ree1_ram_size);
+        exit(1);
+    }
+
+    if (vms->ree2_ram_size >= vms->ree1_ram_size) {
+        error_report("mach-virt: ree2_ram_size (%lu) must < ree1_ram_size (%lu)}",
+                vms->ree2_ram_size, vms->ree1_ram_size);
+        exit(1);
+    }
+    /* --VSCRUM-393-- */
+
     if (vms->virt && (kvm_enabled() || hvf_enabled())) {
         error_report("mach-virt: %s does not support providing "
                      "Virtualization extensions to the guest CPU",
@@ -2379,7 +2461,7 @@ static void machvirt_init(MachineState *machine)
      */
     create_virtio_devices(vms);
 
-    create_ion_reserved_mem(vms);
+    create_reserved_mem(vms);
 
     create_trusty(vms);
 
@@ -2717,6 +2799,93 @@ static void virt_set_default_bus_bypass_iommu(Object *obj, bool value,
 
     vms->default_bus_bypass_iommu = value;
 }
+
+/* ++VSCRUM-393++ */
+static char *virt_get_hee_ram_size(Object *obj, Error **errp)
+{
+    VirtMachineState *vms = VIRT_MACHINE(obj);
+    char val[128] = {};
+
+    snprintf(val, sizeof(val), "%lu", vms->hee_ram_size);
+
+    return g_strdup(val);
+}
+
+static void virt_set_hee_ram_size(Object *obj, const char *value, Error **errp)
+{
+    VirtMachineState *vms = VIRT_MACHINE(obj);
+
+    vms->hee_ram_size = strtol(value, NULL, 10) << 20;
+}
+
+static char *virt_get_ree1_ram_size(Object *obj, Error **errp)
+{
+    VirtMachineState *vms = VIRT_MACHINE(obj);
+    char val[128] = {};
+
+    snprintf(val, sizeof(val), "%lu", vms->ree1_ram_size);
+
+    return g_strdup(val);
+}
+
+static void virt_set_ree1_ram_size(Object *obj, const char *value, Error **errp)
+{
+    VirtMachineState *vms = VIRT_MACHINE(obj);
+
+    vms->ree1_ram_size = strtol(value, NULL, 10) << 20;
+}
+
+static char *virt_get_ree2_ram_size(Object *obj, Error **errp)
+{
+    VirtMachineState *vms = VIRT_MACHINE(obj);
+    char val[128] = {};
+
+    snprintf(val, sizeof(val), "%lu", vms->ree2_ram_size);
+
+    return g_strdup(val);
+}
+
+static void virt_set_ree2_ram_size(Object *obj, const char *value, Error **errp)
+{
+    VirtMachineState *vms = VIRT_MACHINE(obj);
+
+    vms->ree2_ram_size = strtol(value, NULL, 10) << 20;
+}
+
+static char *virt_get_ion_ram_size(Object *obj, Error **errp)
+{
+    VirtMachineState *vms = VIRT_MACHINE(obj);
+    char val[128] = {};
+
+    snprintf(val, sizeof(val), "%lu", vms->ion_ram_size);
+
+    return g_strdup(val);
+}
+
+static void virt_set_ion_ram_size(Object *obj, const char *value, Error **errp)
+{
+    VirtMachineState *vms = VIRT_MACHINE(obj);
+
+    vms->ion_ram_size = strtol(value, NULL, 10) << 20;
+}
+
+static char *virt_get_tee_ram_size(Object *obj, Error **errp)
+{
+    VirtMachineState *vms = VIRT_MACHINE(obj);
+    char val[128] = {};
+
+    snprintf(val, sizeof(val), "%lu", vms->tee_ram_size);
+
+    return g_strdup(val);
+}
+
+static void virt_set_tee_ram_size(Object *obj, const char *value, Error **errp)
+{
+    VirtMachineState *vms = VIRT_MACHINE(obj);
+
+    vms->tee_ram_size = strtol(value, NULL, 10) << 20;
+}
+/* --VSCRUM-393-- */
 
 static CpuInstanceProperties
 virt_cpu_index_to_props(MachineState *ms, unsigned cpu_index)
@@ -3232,6 +3401,22 @@ static void virt_instance_init(Object *obj)
 
     vms->oem_id = g_strndup(ACPI_BUILD_APPNAME6, 6);
     vms->oem_table_id = g_strndup(ACPI_BUILD_APPNAME8, 8);
+
+    vms->hee_ram_size = 1024ul << 20;
+    object_property_add_str(obj, "hee-ram-size", virt_get_hee_ram_size,
+                        virt_set_hee_ram_size, NULL);
+    vms->ree1_ram_size = 1024ul << 20;
+    object_property_add_str(obj, "ree1-ram-size", virt_get_ree1_ram_size,
+                        virt_set_ree1_ram_size, NULL);
+    vms->ree2_ram_size = 64ul << 20;
+    object_property_add_str(obj, "ree2-ram-size", virt_get_ree2_ram_size,
+                        virt_set_ree2_ram_size, NULL);
+    vms->ion_ram_size = 32ul << 20;
+    object_property_add_str(obj, "ion-ram-size", virt_get_ion_ram_size,
+                        virt_set_ion_ram_size, NULL);
+    vms->tee_ram_size = 1024ul << 20;
+    object_property_add_str(obj, "tee-ram-size", virt_get_tee_ram_size,
+                        virt_set_tee_ram_size, NULL);
 }
 
 static const TypeInfo virt_machine_info = {
