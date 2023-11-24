@@ -1170,6 +1170,15 @@ static void create_trusty(VirtMachineState *vms)
     qemu_fdt_setprop_string(fdt, "/trusty/log", "compatible", "android,trusty-log-v1");
 }
 
+static void create_trusty_sched_policy(VirtMachineState *vms)
+{
+    void *fdt = vms->fdt;
+
+    qemu_fdt_add_subnode(fdt, "/nebula");
+    qemu_fdt_add_subnode(fdt, "/nebula/sched_policy");
+    qemu_fdt_setprop_string(fdt, "/nebula/sched_policy", "compatible", "nbl,sched-policy-use-trusty");
+}
+
 static void create_reserved_mem(VirtMachineState *vms) {
     void *fdt = vms->fdt;
 
@@ -2465,6 +2474,10 @@ static void machvirt_init(MachineState *machine)
 
     create_trusty(vms);
 
+    if (vms->trusty_sched_policy) {
+        create_trusty_sched_policy(vms);
+    }
+
     vms->fw_cfg = create_fw_cfg(vms, &address_space_memory);
     rom_set_fw(vms->fw_cfg);
 
@@ -2886,6 +2899,18 @@ static void virt_set_tee_ram_size(Object *obj, const char *value, Error **errp)
     vms->tee_ram_size = strtol(value, NULL, 10) << 20;
 }
 /* --VSCRUM-393-- */
+
+static bool virt_get_trusty_sched_policy(Object *obj, Error **errp)
+{
+    VirtMachineState *vms = VIRT_MACHINE(obj);
+    return vms->okl_hyp;
+}
+
+static void virt_set_trusty_sched_policy(Object *obj, bool value, Error **errp)
+{
+    VirtMachineState *vms = VIRT_MACHINE(obj);
+    vms->trusty_sched_policy = value;
+}
 
 static CpuInstanceProperties
 virt_cpu_index_to_props(MachineState *ms, unsigned cpu_index)
@@ -3417,6 +3442,10 @@ static void virt_instance_init(Object *obj)
     vms->tee_ram_size = 1024ul << 20;
     object_property_add_str(obj, "tee-ram-size", virt_get_tee_ram_size,
                         virt_set_tee_ram_size, NULL);
+
+    vms->trusty_sched_policy = false;
+    object_property_add_bool(obj, "trusty-sched-policy", virt_get_trusty_sched_policy,
+                        virt_set_trusty_sched_policy, NULL);
 }
 
 static const TypeInfo virt_machine_info = {
