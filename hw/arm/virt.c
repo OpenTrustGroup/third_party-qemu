@@ -1138,7 +1138,7 @@ static void create_virtio_devices(const VirtMachineState *vms)
 #define GIC_SPI 0
 #define GIC_PPI 1
 
-static void create_trusty(VirtMachineState *vms)
+static void create_nebula(VirtMachineState *vms)
 {
     void *fdt = vms->fdt;
     uint32_t ipi_phandle = qemu_fdt_alloc_phandle(fdt);
@@ -1149,26 +1149,26 @@ static void create_trusty(VirtMachineState *vms)
     qemu_fdt_setprop_cell(fdt, "/IPI", "#interrupt-cells", 1);
     qemu_fdt_setprop(fdt, "/IPI", "interrupt-controller", NULL, 0);
 
-    /* add dt node for trusty */
-    qemu_fdt_add_subnode(fdt, "/trusty");
-    qemu_fdt_setprop_string(fdt, "/trusty", "compatible", "android,trusty-smc-v1");
-    qemu_fdt_setprop(fdt, "/trusty", "ranges", NULL, 0);
-    qemu_fdt_setprop_cell(fdt, "/trusty", "#address-cells", 2);
-    qemu_fdt_setprop_cell(fdt, "/trusty", "#size-cells", 2);
-    qemu_fdt_add_subnode(fdt, "/trusty/irq");
-    qemu_fdt_setprop_string(fdt, "/trusty/irq", "compatible", "android,trusty-irq-v1");
-    qemu_fdt_setprop_cells(fdt, "/trusty/irq", "interrupt-templates",
+    /* add dt node for nebula */
+    qemu_fdt_add_subnode(fdt, "/nebula");
+    qemu_fdt_setprop_string(fdt, "/nebula", "compatible", "android,trusty-smc-v1");
+    qemu_fdt_setprop(fdt, "/nebula", "ranges", NULL, 0);
+    qemu_fdt_setprop_cell(fdt, "/nebula", "#address-cells", 2);
+    qemu_fdt_setprop_cell(fdt, "/nebula", "#size-cells", 2);
+    qemu_fdt_add_subnode(fdt, "/nebula/irq");
+    qemu_fdt_setprop_string(fdt, "/nebula/irq", "compatible", "android,trusty-irq-v1");
+    qemu_fdt_setprop_cells(fdt, "/nebula/irq", "interrupt-templates",
                            ipi_phandle, 0,
                            vms->gic_phandle, 1, GIC_PPI, 0,
                            vms->gic_phandle, 1, GIC_SPI, 0);
-    qemu_fdt_setprop_cells(fdt, "/trusty/irq", "interrupt-ranges",
+    qemu_fdt_setprop_cells(fdt, "/nebula/irq", "interrupt-ranges",
                             0,  15, 0,
                            16,  31, 1,
                            32, 223, 2);
-    qemu_fdt_add_subnode(fdt, "/trusty/virtio");
-    qemu_fdt_setprop_string(fdt, "/trusty/virtio", "compatible", "android,trusty-virtio-v1");
-    qemu_fdt_add_subnode(fdt, "/trusty/log");
-    qemu_fdt_setprop_string(fdt, "/trusty/log", "compatible", "android,trusty-log-v1");
+    qemu_fdt_add_subnode(fdt, "/nebula/virtio");
+    qemu_fdt_setprop_string(fdt, "/nebula/virtio", "compatible", "android,trusty-virtio-v1");
+    qemu_fdt_add_subnode(fdt, "/nebula/log");
+    qemu_fdt_setprop_string(fdt, "/nebula/log", "compatible", "android,trusty-log-v1");
 }
 
 static void create_trusty_sched_policy(VirtMachineState *vms)
@@ -2507,7 +2507,7 @@ static void machvirt_init(MachineState *machine)
 
     create_reserved_mem(vms);
 
-    create_trusty(vms);
+    create_nebula(vms);
 
     if (vms->trusty_sched_policy) {
         create_trusty_sched_policy(vms);
