@@ -151,6 +151,7 @@ static const MemMapEntry base_memmap[] = {
     [VIRT_GIC_REDIST] =         { 0x080A0000, 0x00F60000 },
     [VIRT_UART0] =              { 0x09000000, 0x00001000 },
     [VIRT_UART1] =              { 0x09001000, 0x00001000 },
+    [VIRT_IRQ_GENERATOR] =      { 0x09002000, 0x00001000 },
     [VIRT_RTC] =                { 0x09010000, 0x00001000 },
     [VIRT_FW_CFG] =             { 0x09020000, 0x00000018 },
     [VIRT_GPIO] =               { 0x09030000, 0x00001000 },
@@ -218,6 +219,7 @@ static const int a15irqmap[] = {
     [VIRT_GIC_V2M] = 48, /* ...to 48 + NUM_GICV2M_SPIS - 1 */
     [VIRT_SMMU] = 74,    /* ...to 74 + NUM_SMMU_IRQS - 1 */
     [VIRT_PLATFORM_BUS] = 112, /* ...to 112 + PLATFORM_BUS_NUM_IRQS -1 */
+    [VIRT_IRQ_GENERATOR] = 200,
 };
 
 static const char *valid_cpus[] = {
@@ -949,6 +951,27 @@ static void create_rtc(const VirtMachineState *vms)
                            GIC_FDT_IRQ_FLAGS_LEVEL_HI);
     qemu_fdt_setprop_cell(ms->fdt, nodename, "clocks", vms->clock_phandle);
     qemu_fdt_setprop_string(ms->fdt, nodename, "clock-names", "apb_pclk");
+    g_free(nodename);
+}
+
+static void create_irq_generator(const VirtMachineState *vms, qemu_irq *pic)
+{
+    char *nodename;
+    hwaddr base = vms->memmap[VIRT_IRQ_GENERATOR].base;
+    hwaddr size = vms->memmap[VIRT_IRQ_GENERATOR].size;
+    int irq = vms->irqmap[VIRT_IRQ_GENERATOR];
+
+    sysbus_create_simple("irq_generator", base, pic[irq]);
+
+    const char compat[] = "nbl,irq-generator";
+    nodename = g_strdup_printf("/irq_generator@%" PRIx64, base);
+    qemu_fdt_add_subnode(vms->fdt, nodename);
+    qemu_fdt_setprop(vms->fdt, nodename, "compatible", compat, sizeof(compat));
+    qemu_fdt_setprop_sized_cells(vms->fdt, nodename, "reg",
+                                 2, base, 2, size);
+    qemu_fdt_setprop_cells(vms->fdt, nodename, "interrupts",
+                           GIC_FDT_IRQ_TYPE_SPI, irq,
+                           GIC_FDT_IRQ_FLAGS_LEVEL_HI);
     g_free(nodename);
 }
 
@@ -2512,6 +2535,8 @@ static void machvirt_init(MachineState *machine)
     create_protected_ram(vms, sysmem);
 
     create_rtc(vms);
+
+    create_irq_generator(vms, pic);
 
     create_pcie(vms);
 
