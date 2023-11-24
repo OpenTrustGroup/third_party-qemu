@@ -81,6 +81,7 @@
 #include "hw/virtio/virtio-iommu.h"
 #include "hw/char/pl011.h"
 #include "qemu/guest-random.h"
+#include <libfdt.h>
 
 #define DEFINE_VIRT_MACHINE_LATEST(major, minor, latest) \
     static void virt_##major##_##minor##_class_init(ObjectClass *oc, \
@@ -114,8 +115,6 @@
 #define NUM_IRQS 512
 
 #define PLATFORM_BUS_NUM_IRQS 64
-
-#define MB (1024 * 1024)
 
 /* Legacy RAM limit in GB (< version 4.0) */
 #define LEGACY_RAMLIMIT_GB 255
@@ -172,6 +171,11 @@ static const MemMapEntry base_memmap[] = {
     [VIRT_PCIE_ECAM] =          { 0x3f000000, 0x01000000 },
     /* Actual RAM size depends on initial RAM and device memory settings */
     [VIRT_MEM] =                { GiB, LEGACY_RAMLIMIT_BYTES },
+    /* 
+     * NOTE(GR-0002): Second PCIe window, 1GB wide at the 16GB boundary,
+     * For A53 compatibility (max 40bits PA), max IPA in Nebula is 36bits.
+     */
+    [VIRT_PCIE_MMIO_HIGH] =     { 0x400000000ULL, 0x40000000ULL },
 };
 
 /*
@@ -194,17 +198,8 @@ static MemMapEntry extended_memmap[] = {
     /* Additional 64 MB redist region (can contain up to 512 redistributors) */
     [VIRT_HIGH_GIC_REDIST2] =   { 0x0, 64 * MiB },
     [VIRT_HIGH_PCIE_ECAM] =     { 0x0, 256 * MiB },
-#if 0
     /* Second PCIe window */
     [VIRT_HIGH_PCIE_MMIO] =     { 0x0, 512 * GiB },
-#else
-    /* 
-     * TODO@wujie the mapping region to be confirmed!
-     * NOTE(GR-0002): Second PCIe window, 1GB wide at the 16GB boundary,
-     * For A53 compatibility (max 40bits PA), max IPA in Nebula is 36bits.
-     */
-    [VIRT_HIGH_PCIE_MMIO] =   { 0x0, 0x40000000ULL },
-#endif
 };
 
 static const int a15irqmap[] = {
@@ -954,22 +949,23 @@ static void create_rtc(const VirtMachineState *vms)
     g_free(nodename);
 }
 
-static void create_irq_generator(const VirtMachineState *vms, qemu_irq *pic)
+static void create_irq_generator(const VirtMachineState *vms)
 {
     char *nodename;
     hwaddr base = vms->memmap[VIRT_IRQ_GENERATOR].base;
     hwaddr size = vms->memmap[VIRT_IRQ_GENERATOR].size;
     int irq = vms->irqmap[VIRT_IRQ_GENERATOR];
+    MachineState *ms = MACHINE(vms);
 
-    sysbus_create_simple("irq_generator", base, pic[irq]);
+    sysbus_create_simple("irq_generator", base, qdev_get_gpio_in(vms->gic, irq));
 
     const char compat[] = "nbl,irq-generator";
     nodename = g_strdup_printf("/irq_generator@%" PRIx64, base);
-    qemu_fdt_add_subnode(vms->fdt, nodename);
-    qemu_fdt_setprop(vms->fdt, nodename, "compatible", compat, sizeof(compat));
-    qemu_fdt_setprop_sized_cells(vms->fdt, nodename, "reg",
+    qemu_fdt_add_subnode(ms->fdt, nodename);
+    qemu_fdt_setprop(ms->fdt, nodename, "compatible", compat, sizeof(compat));
+    qemu_fdt_setprop_sized_cells(ms->fdt, nodename, "reg",
                                  2, base, 2, size);
-    qemu_fdt_setprop_cells(vms->fdt, nodename, "interrupts",
+    qemu_fdt_setprop_cells(ms->fdt, nodename, "interrupts",
                            GIC_FDT_IRQ_TYPE_SPI, irq,
                            GIC_FDT_IRQ_FLAGS_LEVEL_HI);
     g_free(nodename);
@@ -1165,7 +1161,8 @@ static void create_virtio_devices(const VirtMachineState *vms)
 
 static void create_nebula(VirtMachineState *vms)
 {
-    void *fdt = vms->fdt;
+    MachineState *ms = MACHINE(vms);
+    void *fdt = ms->fdt;
     uint32_t ipi_phandle = qemu_fdt_alloc_phandle(fdt);
 
     qemu_fdt_add_subnode(fdt, "/IPI");
@@ -1194,7 +1191,7 @@ static void create_nebula(VirtMachineState *vms)
     qemu_fdt_add_subnode(fdt, nodename);
     qemu_fdt_setprop_string(fdt, nodename, "compatible", "nbl,seccam-ion-reserve-memory");
     qemu_fdt_setprop(fdt, nodename, "no-map", NULL, 0);
-    qemu_fdt_setprop_u64(fdt, nodename, "size", 3 * MB);
+    qemu_fdt_setprop_u64(fdt, nodename, "size", 3 * MiB);
 
     // Reveser-Channel-Service
     qemu_fdt_add_subnode(fdt, "/nebula/rcs");
@@ -1263,7 +1260,8 @@ static void create_nebula(VirtMachineState *vms)
 
 static void create_trusty_sched_policy(VirtMachineState *vms)
 {
-    void *fdt = vms->fdt;
+    MachineState *ms = MACHINE(vms);
+    void *fdt = ms->fdt;
     if (fdt_path_offset(fdt, "/nebula") == -FDT_ERR_NOTFOUND)
         qemu_fdt_add_subnode(fdt, "/nebula");
     qemu_fdt_add_subnode(fdt, "/nebula/sched_policy");
@@ -1272,7 +1270,8 @@ static void create_trusty_sched_policy(VirtMachineState *vms)
 
 static void create_tee_system_mode(VirtMachineState *vms)
 {
-    void *fdt = vms->fdt;
+    MachineState *ms = MACHINE(vms);
+    void *fdt = ms->fdt;
     char nodename[128];
 
     snprintf(nodename, sizeof(nodename), "/nebula/tee_system_mode@%lu", vms->tee_system_mode);
@@ -1283,12 +1282,14 @@ static void create_tee_system_mode(VirtMachineState *vms)
 
 static void create_active_hyp(VirtMachineState *vms)
 {
-    void *fdt = vms->fdt;
+    MachineState *ms = MACHINE(vms);
+    void *fdt = ms->fdt;
     qemu_fdt_add_subnode(fdt, "/active-hyp");
 }
 
 static void create_reserved_mem(VirtMachineState *vms) {
-    void *fdt = vms->fdt;
+    MachineState *ms = MACHINE(vms);
+    void *fdt = ms->fdt;
 
     qemu_fdt_add_subnode(fdt, "/reserved-memory");
     qemu_fdt_setprop_cell(fdt, "/reserved-memory", "#address-cells", 2);
@@ -1662,8 +1663,8 @@ static void create_pcie(VirtMachineState *vms)
 {
     hwaddr base_mmio = vms->memmap[VIRT_PCIE_MMIO].base;
     hwaddr size_mmio = vms->memmap[VIRT_PCIE_MMIO].size;
-    hwaddr base_mmio_high = vms->memmap[VIRT_HIGH_PCIE_MMIO].base;
-    hwaddr size_mmio_high = vms->memmap[VIRT_HIGH_PCIE_MMIO].size;
+    hwaddr base_mmio_high = vms->memmap[VIRT_PCIE_MMIO_HIGH].base;
+    hwaddr size_mmio_high = vms->memmap[VIRT_PCIE_MMIO_HIGH].size;
     hwaddr base_pio = vms->memmap[VIRT_PCIE_PIO].base;
     hwaddr size_pio = vms->memmap[VIRT_PCIE_PIO].size;
     hwaddr base_ecam, size_ecam;
@@ -1676,7 +1677,7 @@ static void create_pcie(VirtMachineState *vms)
     MemoryRegion *ecam_reg;
     DeviceState *dev;
     char *nodename;
-    int i, ecam_id;
+    int i;
     PCIHostState *pci;
     MachineState *ms = MACHINE(vms);
     MachineClass *mc = MACHINE_GET_CLASS(ms);
@@ -1684,9 +1685,8 @@ static void create_pcie(VirtMachineState *vms)
     dev = qdev_new(TYPE_GPEX_HOST);
     sysbus_realize_and_unref(SYS_BUS_DEVICE(dev), &error_fatal);
 
-    ecam_id = VIRT_ECAM_ID(vms->highmem_ecam);
-    base_ecam = vms->memmap[ecam_id].base;
-    size_ecam = vms->memmap[ecam_id].size;
+    base_ecam = vms->memmap[VIRT_PCIE_ECAM].base;
+    size_ecam = vms->memmap[VIRT_PCIE_ECAM].size;
     nr_pcie_buses = size_ecam / PCIE_MMCFG_SIZE_MIN;
     /* Map only the first size_ecam bytes of ECAM space */
     ecam_alias = g_new0(MemoryRegion, 1);
@@ -1859,16 +1859,17 @@ static void create_protected_ram(VirtMachineState *vms,
     char *nodename;
     hwaddr base = vms->memmap[VIRT_PROTECTED_MEM].base;
     hwaddr size = vms->memmap[VIRT_PROTECTED_MEM].size;
+    MachineState *ms = MACHINE(vms);
 
     memory_region_init_ram(protectedram, NULL, "virt.protected-ram", size,
                            &error_fatal);
     memory_region_add_subregion(sysmem, base, protectedram);
 
     nodename = g_strdup_printf("/protectedram@%" PRIx64, base);
-    qemu_fdt_add_subnode(vms->fdt, nodename);
-    qemu_fdt_setprop_string(vms->fdt, nodename, "device_type", "memory");
-    qemu_fdt_setprop_sized_cells(vms->fdt, nodename, "reg", 2, base, 2, size);
-    qemu_fdt_setprop_string(vms->fdt, nodename, "status", "disabled");
+    qemu_fdt_add_subnode(ms->fdt, nodename);
+    qemu_fdt_setprop_string(ms->fdt, nodename, "device_type", "memory");
+    qemu_fdt_setprop_sized_cells(ms->fdt, nodename, "reg", 2, base, 2, size);
+    qemu_fdt_setprop_string(ms->fdt, nodename, "status", "disabled");
 
     g_free(nodename);
 }
@@ -2561,7 +2562,7 @@ static void machvirt_init(MachineState *machine)
     create_uart(vms, VIRT_UART0, sysmem, serial_hd(0));
 
     if (vms->virt)
-        create_uart(vms, pic, VIRT_UART1, sysmem, serial_hds(2));
+        create_uart(vms, VIRT_UART1, sysmem, serial_hd(2));
 
     if (vms->secure) {
         create_secure_ram(vms, secure_sysmem, secure_tag_sysmem);
@@ -2579,7 +2580,7 @@ static void machvirt_init(MachineState *machine)
 
     create_rtc(vms);
 
-    create_irq_generator(vms, pic);
+    create_irq_generator(vms);
 
     create_pcie(vms);
 
@@ -3043,7 +3044,7 @@ static void virt_set_tee_ram_size(Object *obj, const char *value, Error **errp)
 static bool virt_get_trusty_sched_policy(Object *obj, Error **errp)
 {
     VirtMachineState *vms = VIRT_MACHINE(obj);
-    return vms->okl_hyp;
+    return vms->trusty_sched_policy;
 }
 
 static void virt_set_trusty_sched_policy(Object *obj, bool value, Error **errp)
@@ -3559,9 +3560,9 @@ static void virt_instance_init(Object *obj)
     vms->highmem_compact = !vmc->no_highmem_compact;
     vms->gic_version = VIRT_GIC_VERSION_NOSEL;
 
-    vms->highmem_ecam = !vmc->no_highmem_ecam;
-    vms->highmem_mmio = true;
-    vms->highmem_redists = true;
+    vms->highmem_ecam = false;
+    vms->highmem_mmio = false;
+    vms->highmem_redists = false;
 
     if (vmc->no_its) {
         vms->its = false;
@@ -3600,29 +3601,29 @@ static void virt_instance_init(Object *obj)
 
     vms->hee_ram_size = 1024ul << 20;
     object_property_add_str(obj, "hee-ram-size", virt_get_hee_ram_size,
-                        virt_set_hee_ram_size, NULL);
+                        virt_set_hee_ram_size);
     vms->ree1_ram_size = 1024ul << 20;
     object_property_add_str(obj, "ree1-ram-size", virt_get_ree1_ram_size,
-                        virt_set_ree1_ram_size, NULL);
+                        virt_set_ree1_ram_size);
     vms->ree2_ram_size = 64ul << 20;
     object_property_add_str(obj, "ree2-ram-size", virt_get_ree2_ram_size,
-                        virt_set_ree2_ram_size, NULL);
+                        virt_set_ree2_ram_size);
     vms->ion_ram_size = 32ul << 20;
     object_property_add_str(obj, "ion-ram-size", virt_get_ion_ram_size,
-                        virt_set_ion_ram_size, NULL);
+                        virt_set_ion_ram_size);
     vms->tee_ram_size = 1024ul << 20;
     object_property_add_str(obj, "tee-ram-size", virt_get_tee_ram_size,
-                        virt_set_tee_ram_size, NULL);
+                        virt_set_tee_ram_size);
 
     vms->trusty_sched_policy = false;
     object_property_add_bool(obj, "trusty-sched-policy", virt_get_trusty_sched_policy,
-                        virt_set_trusty_sched_policy, NULL);
+                        virt_set_trusty_sched_policy);
     vms->tee_system_mode = 0;
     object_property_add_str(obj, "tee-system-mode", virt_get_tee_system_mode,
-                        virt_set_tee_system_mode, NULL);
+                        virt_set_tee_system_mode);
     vms->active_hyp = false;
     object_property_add_bool(obj, "active-hyp", virt_get_active_hyp,
-                        virt_set_active_hyp, NULL);
+                        virt_set_active_hyp);
 }
 
 static const TypeInfo virt_machine_info = {

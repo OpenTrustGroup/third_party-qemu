@@ -1377,7 +1377,7 @@ static void arm_cpu_initfn(Object *obj)
         cpu->psci_version = QEMU_PSCI_VERSION_1_1;
     }
 
-    object_property_add(OBJECT(cpu), "vmid", "uint16", arm_cpu_get_vmid, NULL, NULL, NULL, NULL);
+    object_property_add(OBJECT(cpu), "vmid", "uint16", arm_cpu_get_vmid, NULL, NULL, NULL);
 }
 
 static Property arm_cpu_gt_cntfrq_property =
