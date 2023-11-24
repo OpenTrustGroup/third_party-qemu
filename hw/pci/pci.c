@@ -85,6 +85,7 @@ static Property pci_props[] = {
                     QEMU_PCIE_ERR_UNC_MASK_BITNR, true),
     DEFINE_PROP_BIT("x-pcie-ari-nextfn-1", PCIDevice, cap_present,
                     QEMU_PCIE_ARI_NEXTFN_1_BITNR, false),
+    DEFINE_PROP_UINT16("vmid",  PCIDevice, vmid, 0),
     DEFINE_PROP_END_OF_LIST()
 };
 
@@ -1575,6 +1576,13 @@ uint32_t pci_default_read_config(PCIDevice *d,
                                  uint32_t address, int len)
 {
     uint32_t val = 0;
+    uint64_t vmid = object_property_get_uint(OBJECT(current_cpu), "vmid", NULL);
+
+    /* TODO@wujie */
+    if (d->vmid != vmid) {
+        memset(&val, 0xFF, len);
+        return le32_to_cpu(val);
+    }
 
     assert(address + len <= pci_config_size(d));
 

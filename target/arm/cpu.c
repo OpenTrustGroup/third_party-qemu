@@ -26,6 +26,7 @@
 #include "target/arm/idau.h"
 #include "qemu/module.h"
 #include "qapi/error.h"
+#include "qapi/visitor.h"
 #include "cpu.h"
 #ifdef CONFIG_TCG
 #include "hw/core/tcg-cpu-ops.h"
@@ -1309,6 +1310,19 @@ uint64_t arm_cpu_mp_affinity(int idx, uint8_t clustersz)
     return (Aff1 << ARM_AFF1_SHIFT) | Aff0;
 }
 
+static void arm_cpu_get_vmid(Object *obj, Visitor *v, const char *name,
+                               void *opaque, Error **errp)
+{
+    ARMCPU *arm_cpu = ARM_CPU(obj);
+    CPUARMState *env = &arm_cpu->env;
+    bool secure = arm_is_secure(env);
+    uint16_t value;
+
+    /* Secure pci devices was NOT supported for now. */
+    value = secure ? 0xFFFF : (env->cp15.vttbr_el2 & ARM_VMID_MASK) >> ARM_VMID_SHIFT;
+    visit_type_uint16(v, name, &value, errp);
+}
+
 static void arm_cpu_initfn(Object *obj)
 {
     ARMCPU *cpu = ARM_CPU(obj);
@@ -1362,6 +1376,8 @@ static void arm_cpu_initfn(Object *obj)
         /* TCG and HVF implement PSCI 1.1 */
         cpu->psci_version = QEMU_PSCI_VERSION_1_1;
     }
+
+    object_property_add(OBJECT(cpu), "vmid", "uint16", arm_cpu_get_vmid, NULL, NULL, NULL, NULL);
 }
 
 static Property arm_cpu_gt_cntfrq_property =
