@@ -171,7 +171,7 @@ static const MemMapEntry base_memmap[] = {
     [VIRT_PCIE_ECAM] =          { 0x3f000000, 0x01000000 },
     /* Actual RAM size depends on initial RAM and device memory settings */
     [VIRT_MEM] =                { GiB, LEGACY_RAMLIMIT_BYTES },
-    /* 
+    /*
      * NOTE(GR-0002): Second PCIe window, 1GB wide at the 16GB boundary,
      * For A53 compatibility (max 40bits PA), max IPA in Nebula is 36bits.
      */
@@ -1187,22 +1187,6 @@ static void create_nebula(VirtMachineState *vms)
     qemu_fdt_add_subnode(fdt, "/nebula/log");
     qemu_fdt_setprop_string(fdt, "/nebula/log", "compatible", "android,trusty-log-v1");
 
-    const char *nodename = "/reserved-memory/nebula-seccam-ion";
-    qemu_fdt_add_subnode(fdt, nodename);
-    qemu_fdt_setprop_string(fdt, nodename, "compatible", "nbl,seccam-ion-reserve-memory");
-    qemu_fdt_setprop(fdt, nodename, "no-map", NULL, 0);
-    qemu_fdt_setprop_u64(fdt, nodename, "size", 3 * MiB);
-
-    // Reveser-Channel-Service
-    qemu_fdt_add_subnode(fdt, "/nebula/rcs");
-    qemu_fdt_setprop_string(fdt, "/nebula/rcs", "compatible", "nbl,rcs-generic");
-    qemu_fdt_setprop_string(fdt, "/nebula/rcs", "dev_name", "/dev/trusty-ipc-dev0");
-    qemu_fdt_setprop_string(fdt, "/nebula/rcs", "svc_name", "com.nbl.droid.activity.callback");
-
-    // Reveser-Channel-Service
-    qemu_fdt_add_subnode(fdt, "/nebula/rpc");
-    qemu_fdt_setprop_string(fdt, "/nebula/rpc", "compatible", "nbl,rpc-generic");
-
     if (vms->active_hyp) {
         // Ipc Mailbox used to communicate between SOS and UOS
         uint32_t mbox_phandle = qemu_fdt_alloc_phandle(fdt);
@@ -1254,6 +1238,22 @@ static void create_nebula(VirtMachineState *vms)
                                0, 15, 0,
                                16, 31, 1,
                                32, 223, 2);
+
+        const char *nodename = "/reserved-memory/nebula-seccam-ion";
+        qemu_fdt_add_subnode(fdt, nodename);
+        qemu_fdt_setprop_string(fdt, nodename, "compatible", "nbl,seccam-ion-reserve-memory");
+        qemu_fdt_setprop(fdt, nodename, "no-map", NULL, 0);
+        qemu_fdt_setprop_u64(fdt, nodename, "size", 3 * MiB);
+
+        // Reveser-Channel-Service
+        qemu_fdt_add_subnode(fdt, "/nebula/rcs");
+        qemu_fdt_setprop_string(fdt, "/nebula/rcs", "compatible", "nbl,rcs-generic");
+        qemu_fdt_setprop_string(fdt, "/nebula/rcs", "dev_name", "/dev/trusty-ipc-dev0");
+        qemu_fdt_setprop_string(fdt, "/nebula/rcs", "svc_name", "com.nbl.droid.activity.callback");
+
+        // Reveser-Channel-Service
+        qemu_fdt_add_subnode(fdt, "/nebula/rpc");
+        qemu_fdt_setprop_string(fdt, "/nebula/rpc", "compatible", "nbl,rpc-generic");
     }
 
 }
