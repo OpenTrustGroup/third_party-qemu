@@ -1226,6 +1226,10 @@ static void create_nebula(VirtMachineState *vms)
         // Virtual TEE virtio driver
         qemu_fdt_add_subnode(fdt, "/nebula-vtee/virtio");
         qemu_fdt_setprop_string(fdt, "/nebula-vtee/virtio", "compatible", "android,vtee-virtio-v1");
+
+        // Reveser-Channel-Service
+        qemu_fdt_add_subnode(fdt, "/nebula-vtee/rpc");
+        qemu_fdt_setprop_string(fdt, "/nebula-vtee/rpc", "compatible", "nbl,vtee-rpc-generic");
     } else {
         // handle TEE IRQ routing by nebula driver
         qemu_fdt_add_subnode(fdt, "/nebula/irq");
