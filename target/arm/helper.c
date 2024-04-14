@@ -1825,6 +1825,29 @@ static void vbar_write(CPUARMState *env, const ARMCPRegInfo *ri,
     raw_write(env, ri, value & ~0x1FULL);
 }
 
+static void cptr_el3_write(CPUARMState *env, const ARMCPRegInfo *ri, uint64_t value)
+{
+  ARMCPU *cpu = env_archcpu(env);
+
+  if (arm_el_is_aa64(env, 3)) {
+    value = value & CPTR_EL3_MASK;
+
+    if (!cpu_isar_feature(aa64_sve, cpu)) {
+        value = value & ~R_CPTR_EL3_EZ_MASK;
+    }
+
+    if (!cpu_isar_feature(aa64_amu, cpu)) {
+        value = value & ~R_CPTR_EL3_TAM_MASK;
+    }
+
+    if (!cpu_isar_feature(aa64_sme, cpu)) {
+        value = value & ~R_CPTR_EL3_ESM_MASK;
+    }
+
+    raw_write(env, ri, value);
+  }
+}
+
 static void scr_write(CPUARMState *env, const ARMCPRegInfo *ri, uint64_t value)
 {
     /* Begin with base v8.0 state.  */
@@ -6387,6 +6410,7 @@ static const ARMCPRegInfo el3_cp_reginfo[] = {
     { .name = "CPTR_EL3", .state = ARM_CP_STATE_AA64,
       .opc0 = 3, .opc1 = 6, .crn = 1, .crm = 1, .opc2 = 2,
       .access = PL3_RW, .accessfn = cptr_access, .resetvalue = 0,
+      .writefn = cptr_el3_write,
       .fieldoffset = offsetof(CPUARMState, cp15.cptr_el[3]) },
     { .name = "TPIDR_EL3", .state = ARM_CP_STATE_AA64,
       .opc0 = 3, .opc1 = 6, .crn = 13, .crm = 0, .opc2 = 2,

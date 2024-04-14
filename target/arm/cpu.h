@@ -1447,6 +1447,10 @@ FIELD(CPTR_EL3, TTA, 20, 1)
 FIELD(CPTR_EL3, TAM, 30, 1)
 FIELD(CPTR_EL3, TCPAC, 31, 1)
 
+#define CPTR_EL3_MASK (R_CPTR_EL3_TCPAC_MASK | R_CPTR_EL3_TAM_MASK | \
+                       R_CPTR_EL3_TTA_MASK | R_CPTR_EL3_ESM_MASK | \
+                       R_CPTR_EL3_TFP_MASK | R_CPTR_EL3_EZ_MASK)
+
 #define MDCR_MTPME    (1U << 28)
 #define MDCR_TDCC     (1U << 27)
 #define MDCR_HLP      (1U << 26)  /* MDCR_EL2 */
