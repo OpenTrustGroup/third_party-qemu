@@ -1387,7 +1387,7 @@ static void create_reserved_mem(VirtMachineState *vms) {
     qemu_fdt_setprop_u64(fdt, "/reserved-memory/ree1-region", "offset", 0x10000);
     /* ion */
     qemu_fdt_add_subnode(fdt, "/reserved-memory/ion-region");
-    qemu_fdt_setprop_string(fdt, "/reserved-memory/ion-region", "compatible", "ion_carveout");
+    qemu_fdt_setprop_string(fdt, "/reserved-memory/ion-region", "compatible", "mediatek,nbl_trace");
     qemu_fdt_setprop_cells(fdt, "/reserved-memory/ion-region", "reg", 0x0, ion_ram_base, 0x0, ion_ram_size);
     qemu_fdt_setprop_u64(fdt, "/reserved-memory/ion-region", "offset", 0x0);
     /* ree2 */
