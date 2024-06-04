@@ -1291,6 +1291,25 @@ static void create_active_hyp(VirtMachineState *vms)
     qemu_fdt_add_subnode(fdt, "/active-hyp");
 }
 
+static void create_android_firmware(VirtMachineState *vms)
+{
+    MachineState *ms = MACHINE(vms);
+    void *fdt = ms->fdt;
+
+    /* for booting Android SOS */
+    qemu_fdt_add_subnode(fdt, "/firmware");
+    qemu_fdt_add_subnode(fdt, "/firmware/android");
+    qemu_fdt_setprop_string(fdt, "/firmware/android", "compatible", "android,firmware");
+    qemu_fdt_add_subnode(fdt, "/firmware/android/fstab");
+    qemu_fdt_setprop_string(fdt, "/firmware/android/fstab", "compatible", "android,fstab");
+    qemu_fdt_add_subnode(fdt, "/firmware/android/fstab/vendor");
+    qemu_fdt_setprop_string(fdt, "/firmware/android/fstab/vendor", "compatible", "android,vendor");
+    qemu_fdt_setprop_string(fdt, "/firmware/android/fstab/vendor", "dev", "/dev/block/vdb");
+    qemu_fdt_setprop_string(fdt, "/firmware/android/fstab/vendor", "type", "ext4");
+    qemu_fdt_setprop_string(fdt, "/firmware/android/fstab/vendor", "mnt_flags", "ro,barrier=1");
+    qemu_fdt_setprop_string(fdt, "/firmware/android/fstab/vendor", "fsmgr_flags", "wait");
+}
+
 static void create_reserved_mem(VirtMachineState *vms) {
     MachineState *ms = MACHINE(vms);
     void *fdt = ms->fdt;
@@ -2614,6 +2633,10 @@ static void machvirt_init(MachineState *machine)
         create_active_hyp(vms);
     }
 
+    if (vms->boot_android) {
+        create_android_firmware(vms);
+    }
+
     create_nebula(vms);
 
     if (vms->trusty_sched_policy) {
@@ -3086,6 +3109,18 @@ static void virt_set_active_hyp(Object *obj, bool value, Error **errp)
 {
     VirtMachineState *vms = VIRT_MACHINE(obj);
     vms->active_hyp = value;
+}
+
+static bool virt_get_boot_android(Object *obj, Error **errp)
+{
+    VirtMachineState *vms = VIRT_MACHINE(obj);
+    return vms->boot_android;
+}
+
+static void virt_set_boot_android(Object *obj, bool value, Error **errp)
+{
+    VirtMachineState *vms = VIRT_MACHINE(obj);
+    vms->boot_android = value;
 }
 
 static CpuInstanceProperties
@@ -3628,6 +3663,9 @@ static void virt_instance_init(Object *obj)
     vms->active_hyp = false;
     object_property_add_bool(obj, "active-hyp", virt_get_active_hyp,
                         virt_set_active_hyp);
+    vms->boot_android = false;
+    object_property_add_bool(obj, "boot-android", virt_get_boot_android,
+                        virt_set_boot_android);
 }
 
 static const TypeInfo virt_machine_info = {

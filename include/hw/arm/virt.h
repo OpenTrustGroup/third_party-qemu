@@ -185,6 +185,7 @@ struct VirtMachineState {
     uint64_t ion_ram_size;
     uint64_t tee_ram_size;
     bool active_hyp;
+    bool boot_android;
     bool trusty_sched_policy;
     uint64_t tee_system_mode;
 };
