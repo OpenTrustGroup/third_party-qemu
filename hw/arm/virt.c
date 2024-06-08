@@ -1158,11 +1158,13 @@ static void create_virtio_devices(const VirtMachineState *vms)
 
 #define GIC_SPI 0
 #define GIC_PPI 1
+#define LEGACY_TRUSTY_IPI 0
 
 static void create_nebula(VirtMachineState *vms)
 {
     MachineState *ms = MACHINE(vms);
     void *fdt = ms->fdt;
+#if LEGACY_TRUSTY_IPI
     uint32_t ipi_phandle = qemu_fdt_alloc_phandle(fdt);
 
     qemu_fdt_add_subnode(fdt, "/IPI");
@@ -1170,6 +1172,7 @@ static void create_nebula(VirtMachineState *vms)
     qemu_fdt_setprop_string(fdt, "/IPI", "compatible", "android,CustomIPI");
     qemu_fdt_setprop_cell(fdt, "/IPI", "#interrupt-cells", 1);
     qemu_fdt_setprop(fdt, "/IPI", "interrupt-controller", NULL, 0);
+#endif
 
     /* add dt node for nebula */
     qemu_fdt_add_subnode(fdt, "/nebula");
@@ -1208,13 +1211,21 @@ static void create_nebula(VirtMachineState *vms)
         qemu_fdt_add_subnode(fdt, "/nebula-vtee/irq");
         qemu_fdt_setprop_string(fdt, "/nebula-vtee/irq", "compatible", "android,vtee-irq-v1");
         qemu_fdt_setprop_cells(fdt, "/nebula-vtee/irq", "interrupt-templates",
+#if LEGACY_TRUSTY_IPI
                                 ipi_phandle, 0,
+#endif
                                 vms->gic_phandle, 1, GIC_PPI, 0,
                                 vms->gic_phandle, 1, GIC_SPI, 0);
         qemu_fdt_setprop_cells(fdt, "/nebula-vtee/irq", "interrupt-ranges",
+#if LEGACY_TRUSTY_IPI
                                 0, 15, 0,
+#endif
                                 16, 31, 1,
                                 32, 223, 2);
+#if LEGACY_TRUSTY_IPI == 0
+        qemu_fdt_setprop_cells(fdt, "/nebula-vtee/irq", "ipi-range",
+                               8, 15, 8);
+#endif
 
         // Virtual TEE log driver
         qemu_fdt_add_subnode(fdt, "/nebula-vtee/log");
@@ -1235,13 +1246,21 @@ static void create_nebula(VirtMachineState *vms)
         qemu_fdt_add_subnode(fdt, "/nebula/irq");
         qemu_fdt_setprop_string(fdt, "/nebula/irq", "compatible", "android,trusty-irq-v1");
         qemu_fdt_setprop_cells(fdt, "/nebula/irq", "interrupt-templates",
+#if LEGACY_TRUSTY_IPI
                                ipi_phandle, 0,
+#endif
                                vms->gic_phandle, 1, GIC_PPI, 0,
                                vms->gic_phandle, 1, GIC_SPI, 0);
         qemu_fdt_setprop_cells(fdt, "/nebula/irq", "interrupt-ranges",
+#if LEGACY_TRUSTY_IPI
                                0, 15, 0,
+#endif
                                16, 31, 1,
                                32, 223, 2);
+#if LEGACY_TRUSTY_IPI == 0
+        qemu_fdt_setprop_cells(fdt, "/nebula/irq", "ipi-range",
+                               8, 15, 8);
+#endif
 
         const char *nodename = "/reserved-memory/nebula-seccam-ion";
         qemu_fdt_add_subnode(fdt, nodename);
