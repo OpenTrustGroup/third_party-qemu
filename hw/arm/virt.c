@@ -1176,19 +1176,19 @@ static void create_nebula(VirtMachineState *vms)
 
     /* add dt node for nebula */
     qemu_fdt_add_subnode(fdt, "/nebula");
-    qemu_fdt_setprop_string(fdt, "/nebula", "compatible", "android,trusty-smc-v1");
+    qemu_fdt_setprop_string(fdt, "/nebula", "compatible", "grt,trusty-smc-v1");
     qemu_fdt_setprop(fdt, "/nebula", "ranges", NULL, 0);
     qemu_fdt_setprop_cell(fdt, "/nebula", "#address-cells", 2);
     qemu_fdt_setprop_cell(fdt, "/nebula", "#size-cells", 2);
 
     qemu_fdt_add_subnode(fdt, "/nebula/virtio");
-    qemu_fdt_setprop_string(fdt, "/nebula/virtio", "compatible", "android,trusty-virtio-v1");
+    qemu_fdt_setprop_string(fdt, "/nebula/virtio", "compatible", "grt,trusty-virtio-v1");
 
     qemu_fdt_add_subnode(fdt, "/nebula/nlog");
-    qemu_fdt_setprop_string(fdt, "/nebula/nlog", "compatible", "android,nebula-log-v1");
+    qemu_fdt_setprop_string(fdt, "/nebula/nlog", "compatible", "grt,nebula-log-v1");
 
     qemu_fdt_add_subnode(fdt, "/nebula/log");
-    qemu_fdt_setprop_string(fdt, "/nebula/log", "compatible", "android,trusty-log-v1");
+    qemu_fdt_setprop_string(fdt, "/nebula/log", "compatible", "grt,trusty-log-v1");
 
     if (vms->active_hyp) {
         // Ipc Mailbox used to communicate between SOS and UOS
@@ -1205,11 +1205,11 @@ static void create_nebula(VirtMachineState *vms)
 
         /* add dt node for nebula virtual TEE */
         qemu_fdt_add_subnode(fdt, "/nebula-vtee");
-        qemu_fdt_setprop_string(fdt, "/nebula-vtee", "compatible", "android,vtee-smc-v1");
+        qemu_fdt_setprop_string(fdt, "/nebula-vtee", "compatible", "grt,vtee-smc-v1");
 
         // handle TEE IRQ routing by virtual TEE driver
         qemu_fdt_add_subnode(fdt, "/nebula-vtee/irq");
-        qemu_fdt_setprop_string(fdt, "/nebula-vtee/irq", "compatible", "android,vtee-irq-v1");
+        qemu_fdt_setprop_string(fdt, "/nebula-vtee/irq", "compatible", "grt,vtee-irq-v1");
         qemu_fdt_setprop_cells(fdt, "/nebula-vtee/irq", "interrupt-templates",
 #if LEGACY_TRUSTY_IPI
                                 ipi_phandle, 0,
@@ -1229,22 +1229,22 @@ static void create_nebula(VirtMachineState *vms)
 
         // Virtual TEE log driver
         qemu_fdt_add_subnode(fdt, "/nebula-vtee/log");
-        qemu_fdt_setprop_string(fdt, "/nebula-vtee/log", "compatible", "android,vtee-log-v1");
+        qemu_fdt_setprop_string(fdt, "/nebula-vtee/log", "compatible", "grt,vtee-log-v1");
 
         qemu_fdt_add_subnode(fdt, "/nebula-vtee/nblmsg");
-        qemu_fdt_setprop_string(fdt, "/nebula-vtee/nblmsg", "compatible", "android,vtee-nblmsg-v1");
+        qemu_fdt_setprop_string(fdt, "/nebula-vtee/nblmsg", "compatible", "grt,vtee-nblmsg-v1");
 
         // Virtual TEE virtio driver
         qemu_fdt_add_subnode(fdt, "/nebula-vtee/virtio");
-        qemu_fdt_setprop_string(fdt, "/nebula-vtee/virtio", "compatible", "android,vtee-virtio-v1");
+        qemu_fdt_setprop_string(fdt, "/nebula-vtee/virtio", "compatible", "grt,vtee-virtio-v1");
 
         // Reveser-Channel-Service
         qemu_fdt_add_subnode(fdt, "/nebula-vtee/rpc");
-        qemu_fdt_setprop_string(fdt, "/nebula-vtee/rpc", "compatible", "nbl,vtee-rpc-generic");
+        qemu_fdt_setprop_string(fdt, "/nebula-vtee/rpc", "compatible", "grt,vtee-rpc-generic");
     } else {
         // handle TEE IRQ routing by nebula driver
         qemu_fdt_add_subnode(fdt, "/nebula/irq");
-        qemu_fdt_setprop_string(fdt, "/nebula/irq", "compatible", "android,trusty-irq-v1");
+        qemu_fdt_setprop_string(fdt, "/nebula/irq", "compatible", "grt,trusty-irq-v1");
         qemu_fdt_setprop_cells(fdt, "/nebula/irq", "interrupt-templates",
 #if LEGACY_TRUSTY_IPI
                                ipi_phandle, 0,
@@ -1269,14 +1269,8 @@ static void create_nebula(VirtMachineState *vms)
         qemu_fdt_setprop_u64(fdt, nodename, "size", 3 * MiB);
 
         // Reveser-Channel-Service
-        qemu_fdt_add_subnode(fdt, "/nebula/rcs");
-        qemu_fdt_setprop_string(fdt, "/nebula/rcs", "compatible", "nbl,rcs-generic");
-        qemu_fdt_setprop_string(fdt, "/nebula/rcs", "dev_name", "/dev/trusty-ipc-dev0");
-        qemu_fdt_setprop_string(fdt, "/nebula/rcs", "svc_name", "com.nbl.droid.activity.callback");
-
-        // Reveser-Channel-Service
         qemu_fdt_add_subnode(fdt, "/nebula/rpc");
-        qemu_fdt_setprop_string(fdt, "/nebula/rpc", "compatible", "nbl,rpc-generic");
+        qemu_fdt_setprop_string(fdt, "/nebula/rpc", "compatible", "grt,rpc-generic");
     }
 
 }
