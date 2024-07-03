@@ -1160,19 +1160,10 @@ static void create_virtio_devices(const VirtMachineState *vms)
 #define GIC_PPI 1
 #define LEGACY_TRUSTY_IPI 0
 
-static void create_nebula(VirtMachineState *vms)
+static void fdt_add_nebula_node(VirtMachineState *vms)
 {
     MachineState *ms = MACHINE(vms);
     void *fdt = ms->fdt;
-#if LEGACY_TRUSTY_IPI
-    uint32_t ipi_phandle = qemu_fdt_alloc_phandle(fdt);
-
-    qemu_fdt_add_subnode(fdt, "/IPI");
-    qemu_fdt_setprop_cell(fdt, "/IPI", "phandle", ipi_phandle);
-    qemu_fdt_setprop_string(fdt, "/IPI", "compatible", "android,CustomIPI");
-    qemu_fdt_setprop_cell(fdt, "/IPI", "#interrupt-cells", 1);
-    qemu_fdt_setprop(fdt, "/IPI", "interrupt-controller", NULL, 0);
-#endif
 
     /* add dt node for nebula */
     qemu_fdt_add_subnode(fdt, "/nebula");
@@ -1189,8 +1180,80 @@ static void create_nebula(VirtMachineState *vms)
 
     qemu_fdt_add_subnode(fdt, "/nebula/log");
     qemu_fdt_setprop_string(fdt, "/nebula/log", "compatible", "grt,trusty-log-v1");
+}
+
+static void fdt_add_vtee_node(VirtMachineState *vms)
+{
+    MachineState *ms = MACHINE(vms);
+    void *fdt = ms->fdt;
+
+    /* add dt node for nebula virtual TEE */
+    qemu_fdt_add_subnode(fdt, "/nebula-vtee");
+    qemu_fdt_setprop_string(fdt, "/nebula-vtee", "compatible", "grt,vtee-smc-v1");
+
+    // handle TEE IRQ routing by virtual TEE driver
+    qemu_fdt_add_subnode(fdt, "/nebula-vtee/irq");
+    qemu_fdt_setprop_string(fdt, "/nebula-vtee/irq", "compatible", "grt,vtee-irq-v1");
+    qemu_fdt_setprop_cells(fdt, "/nebula-vtee/irq", "interrupt-templates",
+#if LEGACY_TRUSTY_IPI
+                            ipi_phandle, 0,
+#endif
+                            vms->gic_phandle, 1, GIC_PPI, 0,
+                            vms->gic_phandle, 1, GIC_SPI, 0);
+    qemu_fdt_setprop_cells(fdt, "/nebula-vtee/irq", "interrupt-ranges",
+#if LEGACY_TRUSTY_IPI
+                            0, 15, 0,
+#endif
+                            16, 31, 1,
+                            32, 223, 2);
+#if LEGACY_TRUSTY_IPI == 0
+    qemu_fdt_setprop_cells(fdt, "/nebula-vtee/irq", "ipi-range",
+                            8, 15, 8);
+#endif
+
+    // Virtual TEE log driver
+    qemu_fdt_add_subnode(fdt, "/nebula-vtee/log");
+    qemu_fdt_setprop_string(fdt, "/nebula-vtee/log", "compatible", "grt,vtee-log-v1");
+
+    qemu_fdt_add_subnode(fdt, "/nebula-vtee/nblmsg");
+    qemu_fdt_setprop_string(fdt, "/nebula-vtee/nblmsg", "compatible", "grt,vtee-nblmsg-v1");
+
+    // Virtual TEE virtio driver
+    qemu_fdt_add_subnode(fdt, "/nebula-vtee/virtio");
+    qemu_fdt_setprop_string(fdt, "/nebula-vtee/virtio", "compatible", "grt,vtee-virtio-v1");
+
+    // Reveser-Channel-Service
+    qemu_fdt_add_subnode(fdt, "/nebula-vtee/rpc");
+    qemu_fdt_setprop_string(fdt, "/nebula-vtee/rpc", "compatible", "grt,vtee-rpc-generic");
+}
+
+static void create_nebula(VirtMachineState *vms)
+{
+    MachineState *ms = MACHINE(vms);
+    void *fdt = ms->fdt;
+#if LEGACY_TRUSTY_IPI
+    uint32_t ipi_phandle = qemu_fdt_alloc_phandle(fdt);
+
+    qemu_fdt_add_subnode(fdt, "/IPI");
+    qemu_fdt_setprop_cell(fdt, "/IPI", "phandle", ipi_phandle);
+    qemu_fdt_setprop_string(fdt, "/IPI", "compatible", "android,CustomIPI");
+    qemu_fdt_setprop_cell(fdt, "/IPI", "#interrupt-cells", 1);
+    qemu_fdt_setprop(fdt, "/IPI", "interrupt-controller", NULL, 0);
+#endif
+
+    // use vtee driver for TEE
+    fdt_add_vtee_node(vms);
+
+    const char *nodename = "/reserved-memory/nebula-seccam-ion";
+    qemu_fdt_add_subnode(fdt, nodename);
+    qemu_fdt_setprop_string(fdt, nodename, "compatible", "nbl,seccam-ion-reserve-memory");
+    qemu_fdt_setprop(fdt, nodename, "no-map", NULL, 0);
+    qemu_fdt_setprop_u64(fdt, nodename, "size", 3 * MiB);
 
     if (vms->active_hyp) {
+        // use nebula driver for hypervisor
+        fdt_add_nebula_node(vms);
+
         // Ipc Mailbox used to communicate between SOS and UOS
         uint32_t mbox_phandle = qemu_fdt_alloc_phandle(fdt);
         qemu_fdt_add_subnode(fdt, "/nebula_mbox");
@@ -1202,77 +1265,7 @@ static void create_nebula(VirtMachineState *vms)
         qemu_fdt_add_subnode(fdt, "/nebula/echo-server");
         qemu_fdt_setprop_string(fdt, "/nebula/echo-server", "compatible", "grt,echo-server");
         qemu_fdt_setprop_cells(fdt, "/nebula/echo-server", "mboxes", mbox_phandle, 0);
-
-        /* add dt node for nebula virtual TEE */
-        qemu_fdt_add_subnode(fdt, "/nebula-vtee");
-        qemu_fdt_setprop_string(fdt, "/nebula-vtee", "compatible", "grt,vtee-smc-v1");
-
-        // handle TEE IRQ routing by virtual TEE driver
-        qemu_fdt_add_subnode(fdt, "/nebula-vtee/irq");
-        qemu_fdt_setprop_string(fdt, "/nebula-vtee/irq", "compatible", "grt,vtee-irq-v1");
-        qemu_fdt_setprop_cells(fdt, "/nebula-vtee/irq", "interrupt-templates",
-#if LEGACY_TRUSTY_IPI
-                                ipi_phandle, 0,
-#endif
-                                vms->gic_phandle, 1, GIC_PPI, 0,
-                                vms->gic_phandle, 1, GIC_SPI, 0);
-        qemu_fdt_setprop_cells(fdt, "/nebula-vtee/irq", "interrupt-ranges",
-#if LEGACY_TRUSTY_IPI
-                                0, 15, 0,
-#endif
-                                16, 31, 1,
-                                32, 223, 2);
-#if LEGACY_TRUSTY_IPI == 0
-        qemu_fdt_setprop_cells(fdt, "/nebula-vtee/irq", "ipi-range",
-                               8, 15, 8);
-#endif
-
-        // Virtual TEE log driver
-        qemu_fdt_add_subnode(fdt, "/nebula-vtee/log");
-        qemu_fdt_setprop_string(fdt, "/nebula-vtee/log", "compatible", "grt,vtee-log-v1");
-
-        qemu_fdt_add_subnode(fdt, "/nebula-vtee/nblmsg");
-        qemu_fdt_setprop_string(fdt, "/nebula-vtee/nblmsg", "compatible", "grt,vtee-nblmsg-v1");
-
-        // Virtual TEE virtio driver
-        qemu_fdt_add_subnode(fdt, "/nebula-vtee/virtio");
-        qemu_fdt_setprop_string(fdt, "/nebula-vtee/virtio", "compatible", "grt,vtee-virtio-v1");
-
-        // Reveser-Channel-Service
-        qemu_fdt_add_subnode(fdt, "/nebula-vtee/rpc");
-        qemu_fdt_setprop_string(fdt, "/nebula-vtee/rpc", "compatible", "grt,vtee-rpc-generic");
-    } else {
-        // handle TEE IRQ routing by nebula driver
-        qemu_fdt_add_subnode(fdt, "/nebula/irq");
-        qemu_fdt_setprop_string(fdt, "/nebula/irq", "compatible", "grt,trusty-irq-v1");
-        qemu_fdt_setprop_cells(fdt, "/nebula/irq", "interrupt-templates",
-#if LEGACY_TRUSTY_IPI
-                               ipi_phandle, 0,
-#endif
-                               vms->gic_phandle, 1, GIC_PPI, 0,
-                               vms->gic_phandle, 1, GIC_SPI, 0);
-        qemu_fdt_setprop_cells(fdt, "/nebula/irq", "interrupt-ranges",
-#if LEGACY_TRUSTY_IPI
-                               0, 15, 0,
-#endif
-                               16, 31, 1,
-                               32, 223, 2);
-#if LEGACY_TRUSTY_IPI == 0
-        qemu_fdt_setprop_cells(fdt, "/nebula/irq", "ipi-range",
-                               8, 15, 8);
-#endif
-
-        const char *nodename = "/reserved-memory/nebula-seccam-ion";
-        qemu_fdt_add_subnode(fdt, nodename);
-        qemu_fdt_setprop_string(fdt, nodename, "compatible", "nbl,seccam-ion-reserve-memory");
-        qemu_fdt_setprop(fdt, nodename, "no-map", NULL, 0);
-        qemu_fdt_setprop_u64(fdt, nodename, "size", 3 * MiB);
-
-        // Reveser-Channel-Service
-        qemu_fdt_add_subnode(fdt, "/nebula/rpc");
-        qemu_fdt_setprop_string(fdt, "/nebula/rpc", "compatible", "grt,rpc-generic");
     }
-
 }
 
 static void create_trusty_sched_policy(VirtMachineState *vms)
