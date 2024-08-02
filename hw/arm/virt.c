@@ -1227,6 +1227,22 @@ static void fdt_add_vtee_node(VirtMachineState *vms)
     qemu_fdt_setprop_string(fdt, "/nebula-vtee/rpc", "compatible", "grt,vtee-rpc-generic");
 }
 
+static create_optee(VirtMachineState *vms)
+{
+    MachineState *ms = MACHINE(vms);
+    void *fdt = ms->fdt;
+    qemu_fdt_add_subnode(fdt, "/firmware");
+    qemu_fdt_add_subnode(fdt, "/firmware/optee");
+    qemu_fdt_setprop_string(fdt, "/firmware/optee", "compatible", "linaro,optee-tz");
+    qemu_fdt_setprop_string(fdt, "/firmware/optee", "method", "smc");
+    // qemu_fdt_setprop_cells(fdt, "/firmware/optee", "interrupts",
+    //                            GIC_FDT_IRQ_TYPE_SPI, 187,
+    //                            GIC_FDT_IRQ_FLAGS_EDGE_LO_HI);
+    // qemu_fdt_add_subnode(fdt, "/firmware/psci: psci");
+    // qemu_fdt_setprop_string(fdt, "/firmware/psci: psci","compatible", "arm,psci-0.2");
+    // qemu_fdt_setprop_string(fdt, "/firmware/psci: psci","method", "smc");
+}
+
 static void create_nebula(VirtMachineState *vms)
 {
     MachineState *ms = MACHINE(vms);
@@ -2644,10 +2660,12 @@ static void machvirt_init(MachineState *machine)
     }
 
     create_nebula(vms);
+    create_optee(vms);
 
     if (vms->trusty_sched_policy) {
         create_trusty_sched_policy(vms);
     }
+
     if (vms->tee_system_mode) {
         create_tee_system_mode(vms);
     }
