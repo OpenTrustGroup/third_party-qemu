@@ -1308,7 +1308,7 @@ static void fdt_add_vtee_node(VirtMachineState *vms)
     qemu_fdt_setprop_string(fdt, "/nebula-vtee/rpc", "compatible", "grt,vtee-rpc-generic");
 }
 
-static create_optee(VirtMachineState *vms)
+static void create_optee(VirtMachineState *vms)
 {
     MachineState *ms = MACHINE(vms);
     void *fdt = ms->fdt;
@@ -1337,9 +1337,6 @@ static void create_nebula(VirtMachineState *vms)
     qemu_fdt_setprop_cell(fdt, "/IPI", "#interrupt-cells", 1);
     qemu_fdt_setprop(fdt, "/IPI", "interrupt-controller", NULL, 0);
 #endif
-
-    // use vtee driver for TEE
-    fdt_add_vtee_node(vms);
 
     const char *nodename = "/reserved-memory/nebula-seccam-ion";
     qemu_fdt_add_subnode(fdt, nodename);
@@ -2783,8 +2780,16 @@ static void machvirt_init(MachineState *machine)
     }
 
     create_nebula(vms);
-    create_optee(vms);
 
+    if (!strcmp(vms->tee_vendor, "nebula")) {
+        // use vtee driver for TEE
+        fdt_add_vtee_node(vms);
+    }
+    
+    if (!strcmp(vms->tee_vendor, "optee")) {
+        create_optee(vms);
+    }
+    
     if (vms->trusty_sched_policy) {
         create_trusty_sched_policy(vms);
     }
@@ -3285,6 +3290,18 @@ static void virt_set_boot_android(Object *obj, bool value, Error **errp)
 {
     VirtMachineState *vms = VIRT_MACHINE(obj);
     vms->boot_android = value;
+}
+
+static char *virt_get_tee_vendor(Object *obj, Error **errp)
+{
+    VirtMachineState *vms = VIRT_MACHINE(obj);
+    return vms->tee_vendor;
+}
+
+static void virt_set_tee_vendor(Object *obj, const char *value, Error **errp)
+{
+    VirtMachineState *vms = VIRT_MACHINE(obj);
+    memcpy(vms->tee_vendor, value, strlen(value));
 }
 
 static CpuInstanceProperties
@@ -3833,6 +3850,9 @@ static void virt_instance_init(Object *obj)
     vms->boot_android = false;
     object_property_add_bool(obj, "boot-android", virt_get_boot_android,
                         virt_set_boot_android);
+    memset(vms->tee_vendor, 0, sizeof(vms->tee_vendor));
+    object_property_add_str(obj, "tee-vendor", virt_get_tee_vendor,
+                        virt_set_tee_vendor);
 }
 
 static const TypeInfo virt_machine_info = {

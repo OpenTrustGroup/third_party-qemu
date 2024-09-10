@@ -191,6 +191,7 @@ struct VirtMachineState {
     bool boot_android;
     bool trusty_sched_policy;
     uint64_t tee_system_mode;
+    char tee_vendor[64];
 };
 
 #define VIRT_ECAM_ID(high) (high ? VIRT_HIGH_PCIE_ECAM : VIRT_PCIE_ECAM)
