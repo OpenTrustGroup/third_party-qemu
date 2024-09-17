@@ -1403,6 +1403,11 @@ static void create_reserved_mem(VirtMachineState *vms) {
     qemu_fdt_setprop(fdt, "/reserved-memory/tee-region", "no-map", NULL, 0);
     qemu_fdt_setprop_cells(fdt, "/reserved-memory/tee-region", "reg", 0x0, tee_ram_base, 0x0, tee_ram_size);
     qemu_fdt_setprop_u64(fdt, "/reserved-memory/tee-region", "offset", 0x10000);
+    /* rproc */
+    qemu_fdt_add_subnode(fdt, "/reserved-memory/mblock-1-rproc_reserved");
+    qemu_fdt_setprop_string(fdt, "/reserved-memory/mblock-1-rproc_reserved", "compatible", "grt,rproc_reserved");
+    qemu_fdt_setprop_cells(fdt, "/reserved-memory/mblock-1-rproc_reserved", "reg", 0x0, cma_ram_base, 0x0, cma_ram_size);
+    qemu_fdt_setprop_u64(fdt, "/reserved-memory/mblock-1-rproc_reserved", "offset", 0x0);
 }
 
 #define VIRT_FLASH_SECTOR_SIZE (256 * KiB)
