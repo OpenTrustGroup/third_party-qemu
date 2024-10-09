@@ -215,6 +215,7 @@ static const int a15irqmap[] = {
     [VIRT_SMMU] = 74,    /* ...to 74 + NUM_SMMU_IRQS - 1 */
     [VIRT_PLATFORM_BUS] = 112, /* ...to 112 + PLATFORM_BUS_NUM_IRQS -1 */
     [VIRT_IRQ_GENERATOR] = 200,
+    [VIRT_FAKE_IRQ] = 221,
 };
 
 static const char *valid_cpus[] = {
@@ -969,6 +970,20 @@ static void create_irq_generator(const VirtMachineState *vms)
                            GIC_FDT_IRQ_TYPE_SPI, irq,
                            GIC_FDT_IRQ_FLAGS_LEVEL_HI);
     g_free(nodename);
+}
+
+static void create_simple_fake_irq(const VirtMachineState *vms)
+{
+    char *nodename = "/simple-fake-irq";
+    int irq = vms->irqmap[VIRT_FAKE_IRQ];
+    MachineState *ms = MACHINE(vms);
+
+    qemu_fdt_add_subnode(ms->fdt, nodename);
+    const char compat[] = "nbl,simple-fake-irq";
+    qemu_fdt_setprop(ms->fdt, nodename, "compatible", compat, sizeof(compat));
+    qemu_fdt_setprop_cells(ms->fdt, nodename, "interrupts",
+                           GIC_FDT_IRQ_TYPE_SPI, irq,
+                           GIC_FDT_IRQ_FLAGS_LEVEL_HI);
 }
 
 static DeviceState *gpio_key_dev;
@@ -2631,7 +2646,7 @@ static void machvirt_init(MachineState *machine)
     create_rtc(vms);
 
     create_irq_generator(vms);
-
+    create_simple_fake_irq(vms);
     create_pcie(vms);
 
     if (has_ged && aarch64 && firmware_loaded && virt_is_acpi_enabled(vms)) {
