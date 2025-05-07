@@ -80,6 +80,7 @@
 #include "hw/virtio/virtio-md-pci.h"
 #include "hw/virtio/virtio-iommu.h"
 #include "hw/char/pl011.h"
+#include "hw/i2c/imx_i2c.h"
 #include "qemu/guest-random.h"
 #include <libfdt.h>
 
@@ -151,6 +152,7 @@ static const MemMapEntry base_memmap[] = {
     [VIRT_UART0] =              { 0x09000000, 0x00001000 },
     [VIRT_UART1] =              { 0x09001000, 0x00001000 },
     [VIRT_IRQ_GENERATOR] =      { 0x09002000, 0x00001000 },
+    [VIRT_IMX_I2C] =            { 0x09003000, 0x00001000 },
     [VIRT_RTC] =                { 0x09010000, 0x00001000 },
     [VIRT_FW_CFG] =             { 0x09020000, 0x00000018 },
     [VIRT_GPIO] =               { 0x09030000, 0x00001000 },
@@ -216,6 +218,7 @@ static const int a15irqmap[] = {
     [VIRT_PLATFORM_BUS] = 112, /* ...to 112 + PLATFORM_BUS_NUM_IRQS -1 */
     [VIRT_IRQ_GENERATOR] = 200,
     [VIRT_FAKE_IRQ] = 221,
+    [VIRT_IMX_I2C] = 222,
 };
 
 static const char *valid_cpus[] = {
@@ -962,6 +965,28 @@ static void create_irq_generator(const VirtMachineState *vms)
 
     const char compat[] = "nbl,irq-generator";
     nodename = g_strdup_printf("/irq_generator@%" PRIx64, base);
+    qemu_fdt_add_subnode(ms->fdt, nodename);
+    qemu_fdt_setprop(ms->fdt, nodename, "compatible", compat, sizeof(compat));
+    qemu_fdt_setprop_sized_cells(ms->fdt, nodename, "reg",
+                                 2, base, 2, size);
+    qemu_fdt_setprop_cells(ms->fdt, nodename, "interrupts",
+                           GIC_FDT_IRQ_TYPE_SPI, irq,
+                           GIC_FDT_IRQ_FLAGS_LEVEL_HI);
+    g_free(nodename);
+}
+
+static void create_i2c(const VirtMachineState *vms)
+{
+    char *nodename;
+    hwaddr base = vms->memmap[VIRT_IMX_I2C].base;
+    hwaddr size = vms->memmap[VIRT_IMX_I2C].size;
+    int irq = vms->irqmap[VIRT_IMX_I2C];
+    MachineState *ms = MACHINE(vms);
+
+    sysbus_create_simple(TYPE_IMX_I2C, base, qdev_get_gpio_in(vms->gic, irq));
+
+    const char compat[] = "fsl,imx1-i2c";
+    nodename = g_strdup_printf("/i2c@%" PRIx64, base);
     qemu_fdt_add_subnode(ms->fdt, nodename);
     qemu_fdt_setprop(ms->fdt, nodename, "compatible", compat, sizeof(compat));
     qemu_fdt_setprop_sized_cells(ms->fdt, nodename, "reg",
@@ -2644,6 +2669,7 @@ static void machvirt_init(MachineState *machine)
     create_protected_ram(vms, sysmem);
 
     create_rtc(vms);
+    create_i2c(vms);
 
     create_irq_generator(vms);
     create_simple_fake_irq(vms);
