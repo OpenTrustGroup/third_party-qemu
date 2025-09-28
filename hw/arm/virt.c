@@ -218,7 +218,7 @@ static const int a15irqmap[] = {
     [VIRT_PLATFORM_BUS] = 112, /* ...to 112 + PLATFORM_BUS_NUM_IRQS -1 */
     [VIRT_IRQ_GENERATOR] = 200,
     [VIRT_FAKE_IRQ] = 221,
-    [VIRT_IMX_I2C] = 222,
+    [VIRT_IMX_I2C] = 220,
 };
 
 static const char *valid_cpus[] = {
