@@ -1389,8 +1389,10 @@ static void create_reserved_mem(VirtMachineState *vms) {
     //                         |                              |
     // guest_ram_base >>>>>>>>>+------------------------------+ 0x80000000
     //                         |                              |
-    //                         |  Guest reserved              |
+    //                         |  SOS main memory             |
     //                         |                              |
+    //         tbox_ram_base-->+------------------------------+
+    //                         |  tbox VM reserved            |
     //         ion_ram_base -->+------------------------------+
     //                         |  nebula_trace memory         |
     //             cma_base -->+------------------------------+
@@ -1454,13 +1456,12 @@ static void create_reserved_mem(VirtMachineState *vms) {
     qemu_fdt_setprop_string(fdt, "/reserved-memory/mblock-1-rproc_reserved", "compatible", "grt,rproc_reserved");
     qemu_fdt_setprop_cells(fdt, "/reserved-memory/mblock-1-rproc_reserved", "reg", 0x0, cma_ram_base, 0x0, cma_ram_size);
     qemu_fdt_setprop_u64(fdt, "/reserved-memory/mblock-1-rproc_reserved", "offset", 0x0);
-    /* guest reserved */
-    uint64_t consumed = ree1_ram_size + ree2_ram_size;
-    qemu_fdt_add_subnode(fdt, "/reserved-memory/guest-reserved");
-    qemu_fdt_setprop_string(fdt, "/reserved-memory/guest-reserved", "compatible", "grt,guest-memory");
-    qemu_fdt_setprop(fdt, "/reserved-memory/guest-reserved", "no-map", NULL, 0);
-    qemu_fdt_setprop_cells(fdt, "/reserved-memory/guest-reserved", "reg", 0x0, guest_ram_base, 0x0, guest_ram_size - consumed);
-    qemu_fdt_setprop_u64(fdt, "/reserved-memory/guest-reserved", "offset", 0x0);
+    /* tbox VM reserved */
+    qemu_fdt_add_subnode(fdt, "/reserved-memory/tbox-reserved");
+    qemu_fdt_setprop_string(fdt, "/reserved-memory/tbox-reserved", "compatible", "grt,tbox-reserved");
+    qemu_fdt_setprop(fdt, "/reserved-memory/tbox-reserved", "no-map", NULL, 0);
+    qemu_fdt_setprop_cells(fdt, "/reserved-memory/tbox-reserved", "reg", 0x0, tbox_ram_base, 0x0, tbox_ram_size);
+    qemu_fdt_setprop_u64(fdt, "/reserved-memory/tbox-reserved", "offset", 0x0);
 }
 
 #define VIRT_FLASH_SECTOR_SIZE (256 * KiB)
