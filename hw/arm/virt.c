@@ -1396,7 +1396,7 @@ static void create_reserved_mem(VirtMachineState *vms) {
     //         ion_ram_base -->+------------------------------+
     //                         |  nebula_trace memory         |
     //             cma_base -->+------------------------------+
-    //                         |  rproc shared memory 16MiB   |
+    //                         |  rproc shared memory         |
     //        ree1_ram_base -->+------------------------------+ 0xf8000000
     //                         |  ree-device-tree 64KiB       |
     //             +0x10000 -->+------------------------------+
@@ -1418,8 +1418,9 @@ static void create_reserved_mem(VirtMachineState *vms) {
     uint64_t ree2_ram_base = guest_ram_base + guest_ram_size - ree2_ram_size;
     uint64_t ree1_ram_size = vms->ree1_ram_size;
     uint64_t ree1_ram_base = ree2_ram_base - ree1_ram_size;
-    uint64_t cma_ram_size = 16ul << 20; // [    0.000000] cma: Reserved 16 MiB at 0x000000005f000000
+    uint64_t cma_ram_size = 32ul << 20;
     uint64_t cma_ram_base = ree1_ram_base - cma_ram_size;
+    uint64_t rproc_ram_size = cma_ram_size / 2;
     uint64_t ion_ram_size = vms->ion_ram_size;
     uint64_t ion_ram_base = cma_ram_base - ion_ram_size;
     uint64_t tbox_ram_size = 512ul << 20;
@@ -1454,8 +1455,12 @@ static void create_reserved_mem(VirtMachineState *vms) {
     /* rproc */
     qemu_fdt_add_subnode(fdt, "/reserved-memory/mblock-1-rproc_reserved");
     qemu_fdt_setprop_string(fdt, "/reserved-memory/mblock-1-rproc_reserved", "compatible", "grt,rproc_reserved");
-    qemu_fdt_setprop_cells(fdt, "/reserved-memory/mblock-1-rproc_reserved", "reg", 0x0, cma_ram_base, 0x0, cma_ram_size);
+    qemu_fdt_setprop_cells(fdt, "/reserved-memory/mblock-1-rproc_reserved", "reg", 0x0, cma_ram_base, 0x0, rproc_ram_size);
     qemu_fdt_setprop_u64(fdt, "/reserved-memory/mblock-1-rproc_reserved", "offset", 0x0);
+    qemu_fdt_add_subnode(fdt, "/reserved-memory/mblock-2-rproc_reserved_tbox");
+    qemu_fdt_setprop_string(fdt, "/reserved-memory/mblock-2-rproc_reserved_tbox", "compatible", "grt,rproc_reserved");
+    qemu_fdt_setprop_cells(fdt, "/reserved-memory/mblock-2-rproc_reserved_tbox", "reg", 0x0, cma_ram_base + rproc_ram_size, 0x0, rproc_ram_size);
+    qemu_fdt_setprop_u64(fdt, "/reserved-memory/mblock-2-rproc_reserved_tbox", "offset", 0x0);
     /* tbox VM reserved */
     qemu_fdt_add_subnode(fdt, "/reserved-memory/tbox-reserved");
     qemu_fdt_setprop_string(fdt, "/reserved-memory/tbox-reserved", "compatible", "grt,tbox-reserved");
