@@ -929,6 +929,47 @@ static void create_uart(const VirtMachineState *vms, int uart,
     g_free(nodename);
 }
 
+
+static void create_ns16550a_uart(const VirtMachineState *vms, int uart,
+                        MemoryRegion *mem, Chardev *chr)
+{
+    char *nodename;
+    hwaddr base = vms->memmap[uart].base;
+    hwaddr size = vms->memmap[uart].size;
+    int irq = vms->irqmap[uart];
+    const char compat[] = "ns16550a";
+    const char clocknames[] = "uartclk\0apb_pclk";
+    MachineState *ms = MACHINE(vms);
+
+    serial_mm_init(get_system_memory(), base, 2,
+                       qdev_get_gpio_in(vms->gic, irq), 115200,
+                       chr, DEVICE_LITTLE_ENDIAN);
+
+    nodename = g_strdup_printf("/ns16550a@%" PRIx64, base);
+    qemu_fdt_add_subnode(ms->fdt, nodename);
+    /* Note that we can't use setprop_string because of the embedded NUL */
+    qemu_fdt_setprop(ms->fdt, nodename, "compatible",
+                         compat, sizeof(compat));
+    qemu_fdt_setprop_sized_cells(ms->fdt, nodename, "reg",
+                                     2, base, 2, size);
+    qemu_fdt_setprop_cells(ms->fdt, nodename, "interrupts",
+                               GIC_FDT_IRQ_TYPE_SPI, irq,
+                               GIC_FDT_IRQ_FLAGS_LEVEL_HI);
+    qemu_fdt_setprop_cells(ms->fdt, nodename, "clocks",
+                               vms->clock_phandle, vms->clock_phandle);
+    qemu_fdt_setprop(ms->fdt, nodename, "clock-names",
+                         clocknames, sizeof(clocknames));
+
+    /* Mark as not usable by the normal world */
+    qemu_fdt_setprop_string(ms->fdt, nodename, "status", "disabled");
+    qemu_fdt_setprop_string(ms->fdt, nodename, "secure-status", "okay");
+
+    qemu_fdt_setprop_string(ms->fdt, "/secure-chosen", "stdout-path",
+                            nodename);
+
+    g_free(nodename);
+}
+
 static void create_rtc(const VirtMachineState *vms)
 {
     char *nodename;
@@ -2668,7 +2709,7 @@ static void machvirt_init(MachineState *machine)
 
     fdt_add_pmu_nodes(vms);
 
-    create_uart(vms, VIRT_UART0, sysmem, serial_hd(0));
+    create_ns16550a_uart(vms, VIRT_UART0, sysmem, serial_hd(0));
 
     if (vms->virt)
         create_uart(vms, VIRT_UART1, sysmem, serial_hd(2));
