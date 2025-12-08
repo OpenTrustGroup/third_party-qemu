@@ -1466,6 +1466,9 @@ static void create_reserved_mem(VirtMachineState *vms) {
     uint64_t ion_ram_base = cma_ram_base - ion_ram_size;
     uint64_t tbox_ram_size = 512ul << 20;
     uint64_t tbox_ram_base = ion_ram_base - tbox_ram_size;
+    uint64_t vmlog_ram_size = 2ul << 20;
+    uint64_t vmlog_ram_base = tbox_ram_base - vmlog_ram_size;
+    uint64_t vmlog_sos_size = vmlog_ram_size / 2;
     uint64_t tee_ram_base = guest_ram_base + guest_ram_size;
     uint64_t tee_ram_size = vms->tee_ram_size;
     /* hee */
@@ -1502,6 +1505,20 @@ static void create_reserved_mem(VirtMachineState *vms) {
     qemu_fdt_setprop_string(fdt, "/reserved-memory/mblock-2-rproc_reserved_tbox", "compatible", "grt,rproc_reserved");
     qemu_fdt_setprop_cells(fdt, "/reserved-memory/mblock-2-rproc_reserved_tbox", "reg", 0x0, cma_ram_base + rproc_ram_size, 0x0, rproc_ram_size);
     qemu_fdt_setprop_u64(fdt, "/reserved-memory/mblock-2-rproc_reserved_tbox", "offset", 0x0);
+
+    /* vmlog sos */
+    qemu_fdt_add_subnode(fdt, "/reserved-memory/mblock-3-vmlog_sink_sos");
+    qemu_fdt_setprop_string(fdt, "/reserved-memory/mblock-3-vmlog_sink_sos", "compatible", "grt,vmlog-sink");
+    qemu_fdt_setprop_cells(fdt, "/reserved-memory/mblock-3-vmlog_sink_sos", "reg", 0x0, vmlog_ram_base, 0x0, vmlog_sos_size);
+    qemu_fdt_setprop_u64(fdt, "/reserved-memory/mblock-3-vmlog_sink_sos", "offset", 0x0);
+    qemu_fdt_setprop_string(fdt, "/reserved-memory/mblock-3-vmlog_sink_sos", "status", "disabled");
+    /* vmlog tbox */
+    qemu_fdt_add_subnode(fdt, "/reserved-memory/mblock-4-vmlog_sink_tbox");
+    qemu_fdt_setprop_string(fdt, "/reserved-memory/mblock-4-vmlog_sink_tbox", "compatible", "grt,vmlog-sink");
+    qemu_fdt_setprop_cells(fdt, "/reserved-memory/mblock-4-vmlog_sink_tbox", "reg", 0x0, vmlog_ram_base + vmlog_sos_size, 0x0, vmlog_sos_size);
+    qemu_fdt_setprop_u64(fdt, "/reserved-memory/mblock-4-vmlog_sink_tbox", "offset", 0x0);
+    qemu_fdt_setprop_string(fdt, "/reserved-memory/mblock-4-vmlog_sink_tbox", "status", "disabled");
+
     /* tbox VM reserved */
     qemu_fdt_add_subnode(fdt, "/reserved-memory/tbox-reserved");
     qemu_fdt_setprop_string(fdt, "/reserved-memory/tbox-reserved", "compatible", "grt,tbox-reserved");
