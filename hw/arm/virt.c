@@ -523,7 +523,7 @@ static void fdt_add_its_gic_node(VirtMachineState *vms)
     qemu_fdt_setprop_string(ms->fdt, nodename, "compatible",
                             "arm,gic-v3-its");
     qemu_fdt_setprop(ms->fdt, nodename, "msi-controller", NULL, 0);
-    qemu_fdt_setprop_cell(ms->fdt, nodename, "#msi-cells", 1);
+    //qemu_fdt_setprop_cell(ms->fdt, nodename, "#msi-cells", 1);
     qemu_fdt_setprop_sized_cells(ms->fdt, nodename, "reg",
                                  2, vms->memmap[VIRT_GIC_ITS].base,
                                  2, vms->memmap[VIRT_GIC_ITS].size);
@@ -1910,10 +1910,14 @@ static void create_pcie(VirtMachineState *vms)
                            nr_pcie_buses - 1);
     qemu_fdt_setprop(ms->fdt, nodename, "dma-coherent", NULL, 0);
 
-    if (vms->msi_phandle) {
-        qemu_fdt_setprop_cells(ms->fdt, nodename, "msi-map",
-                               0, vms->msi_phandle, 0, 0x10000);
-    }
+    /*
+     * MSI is for hypervisor virtio-pci bus only,
+     * so the QEMU pci bus msi should be disabled
+     */
+    // if (vms->msi_phandle) {
+    //     qemu_fdt_setprop_cells(ms->fdt, nodename, "msi-map",
+    //                            0, vms->msi_phandle, 0, 0x10000);
+    // }
 
     qemu_fdt_setprop_sized_cells(ms->fdt, nodename, "reg",
                                  2, base_ecam, 2, size_ecam);
